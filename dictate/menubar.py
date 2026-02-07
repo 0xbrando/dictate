@@ -19,6 +19,7 @@ from pathlib import Path
 from dictate.icons import cleanup_temp_files, generate_reactive_icon, get_icon_path
 from dictate.output import TextAggregator, create_output_handler
 from dictate.presets import (
+    COMMAND_KEYS,
     INPUT_LANGUAGES,
     OUTPUT_LANGUAGES,
     PTT_KEYS,
@@ -70,7 +71,9 @@ class DictateMenuBarApp(rumps.App):
 
         self._recording_locked = False
         self._ptt_held = False
+        self._command_held = False
         self._is_recording = False
+        self._is_command_mode = False
         self._paused = False
         self._rms_history: deque[float] = deque([0.0] * 5, maxlen=5)
 
@@ -133,6 +136,9 @@ class DictateMenuBarApp(rumps.App):
             self._build_input_lang_menu(),
             self._build_output_lang_menu(),
             self._build_llm_toggle(),
+            None,
+            self._build_command_key_menu(),
+            rumps.MenuItem("Personal Dictionary...", callback=self._on_open_dictionary),
             None,
             self._build_recent_menu(),
             None,
@@ -208,6 +214,15 @@ class DictateMenuBarApp(rumps.App):
             item._style_key = key  # type: ignore[attr-defined]
             style_menu.add(item)
         return style_menu
+
+    def _build_command_key_menu(self) -> rumps.MenuItem:
+        cmd_menu = rumps.MenuItem("Command Mode Key")
+        for key_id, label in COMMAND_KEYS:
+            item = rumps.MenuItem(label, callback=self._on_command_key_select)
+            item.state = key_id == self._prefs.command_key
+            item._key_id = key_id  # type: ignore[attr-defined]
+            cmd_menu.add(item)
+        return cmd_menu
 
     def _build_login_toggle(self) -> rumps.MenuItem:
         item = rumps.MenuItem("Launch at Login", callback=self._on_login_toggle)
@@ -311,6 +326,18 @@ class DictateMenuBarApp(rumps.App):
         self._apply_prefs()
         self._build_menu()
 
+    def _on_command_key_select(self, sender: rumps.MenuItem) -> None:
+        key_id = sender._key_id  # type: ignore[attr-defined]
+        self._prefs.command_key = key_id
+        self._prefs.save()
+        self._apply_prefs()
+        self._build_menu()
+
+    def _on_open_dictionary(self, _sender: rumps.MenuItem) -> None:
+        import subprocess
+        dict_path = Preferences.save_default_dictionary()
+        subprocess.Popen(["open", str(dict_path)])
+
     def _on_login_toggle(self, _sender: rumps.MenuItem) -> None:
         enabled = not self._is_launch_at_login()
         self._set_launch_at_login(enabled)
@@ -324,35 +351,24 @@ class DictateMenuBarApp(rumps.App):
         return self._launch_agent_path().exists()
 
     def _set_launch_at_login(self, enabled: bool) -> None:
+        import os
+        import plistlib
         import sys
 
         plist_path = self._launch_agent_path()
         if enabled:
             python = sys.executable
             project_dir = str(Path(__file__).resolve().parent.parent)
-            plist_content = (
-                '<?xml version="1.0" encoding="UTF-8"?>\n'
-                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
-                ' "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
-                '<plist version="1.0">\n'
-                "<dict>\n"
-                "  <key>Label</key>\n"
-                "  <string>com.dictate.app</string>\n"
-                "  <key>ProgramArguments</key>\n"
-                "  <array>\n"
-                f"    <string>{python}</string>\n"
-                "    <string>-m</string>\n"
-                "    <string>dictate</string>\n"
-                "  </array>\n"
-                "  <key>WorkingDirectory</key>\n"
-                f"  <string>{project_dir}</string>\n"
-                "  <key>RunAtLoad</key>\n"
-                "  <true/>\n"
-                "</dict>\n"
-                "</plist>\n"
-            )
+            plist_data = {
+                "Label": "com.dictate.app",
+                "ProgramArguments": [python, "-m", "dictate"],
+                "WorkingDirectory": project_dir,
+                "RunAtLoad": True,
+            }
             plist_path.parent.mkdir(parents=True, exist_ok=True)
-            plist_path.write_text(plist_content)
+            with open(plist_path, "wb") as f:
+                plistlib.dump(plist_data, f)
+            os.chmod(plist_path, 0o600)
             logger.info("Launch at Login enabled: %s", plist_path)
         else:
             if plist_path.exists():
@@ -385,9 +401,10 @@ class DictateMenuBarApp(rumps.App):
         self._config.llm.output_language = self._prefs.llm_output_language
         self._config.llm.model_choice = self._prefs.llm_model
         self._config.llm.backend = self._prefs.backend
-        self._config.llm.api_url = self._prefs.api_url
+        self._config.llm.api_url = self._prefs.validated_api_url
         self._config.llm.enabled = self._prefs.llm_cleanup
         self._config.llm.writing_style = self._prefs.writing_style
+        self._config.llm.dictionary = Preferences.load_dictionary() or None
         self._config.keybinds.ptt_key = self._prefs.ptt_pynput_key
         sound = self._prefs.sound
         if sound.start_hz == 0:
@@ -457,8 +474,17 @@ class DictateMenuBarApp(rumps.App):
         def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
             if self._paused:
                 return
+
+            command_key = self._prefs.command_pynput_key
+            if command_key and key == command_key:
+                self._command_held = True
+                self._is_command_mode = True
+                self._start_recording()
+                return
+
             if key == self._config.keybinds.ptt_key:
                 self._ptt_held = True
+                self._is_command_mode = False
                 if self._recording_locked:
                     self._recording_locked = False
                     time.sleep(KEYBOARD_RELEASE_DELAY_SECONDS)
@@ -477,6 +503,13 @@ class DictateMenuBarApp(rumps.App):
                     logger.info("Recording locked")
 
         def on_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
+            command_key = self._prefs.command_pynput_key
+            if command_key and key == command_key:
+                self._command_held = False
+                time.sleep(KEYBOARD_RELEASE_DELAY_SECONDS)
+                self._stop_recording()
+                return
+
             if key == self._config.keybinds.ptt_key:
                 self._ptt_held = False
                 if not self._recording_locked:
@@ -541,19 +574,92 @@ class DictateMenuBarApp(rumps.App):
         if self._pipeline is None:
             return
         try:
-            text = self._pipeline.process(audio)
-            if text:
-                self._emit_output(text)
+            if self._is_command_mode:
+                self._process_command(audio)
+            else:
+                text = self._pipeline.process(audio)
+                if text:
+                    self._emit_output(text)
         except Exception:
             logger.exception("Processing error")
         finally:
+            self._is_command_mode = False
             self._post_ui("status", "Idle")
+
+    def _process_command(self, audio: NDArray[np.int16]) -> None:
+        import pyperclip
+
+        spoken = self._pipeline._whisper.transcribe(
+            audio, self._pipeline._sample_rate,
+            language=self._config.whisper.language,
+        ).strip()
+        if not spoken:
+            return
+
+        clipboard_text = pyperclip.paste() or ""
+        if not clipboard_text:
+            logger.info("Command mode: clipboard empty, treating as normal dictation")
+            text = self._pipeline._cleaner.cleanup(spoken)
+            if text:
+                self._emit_output(text)
+            return
+
+        logger.info("Command mode: '%s' on %d chars", spoken, len(clipboard_text))
+
+        prompt = self._config.llm.get_command_prompt()
+        user_msg = f"CLIPBOARD:\n{clipboard_text}\n\nCOMMAND: {spoken}"
+
+        from dictate.transcribe import _postprocess
+        if hasattr(self._pipeline._cleaner, '_model') and self._pipeline._cleaner._model is not None:
+            from mlx_lm import generate
+            from mlx_lm.sample_utils import make_sampler
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": user_msg},
+            ]
+            tok_prompt = self._pipeline._cleaner._tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+            )
+            sampler = make_sampler(temp=0.0)
+            result = generate(
+                self._pipeline._cleaner._model,
+                self._pipeline._cleaner._tokenizer,
+                prompt=tok_prompt, max_tokens=self._config.llm.max_tokens * 2,
+                sampler=sampler,
+            )
+            result = _postprocess(result.strip())
+        else:
+            import json
+            import urllib.request
+            payload = json.dumps({
+                "model": "default",
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": user_msg},
+                ],
+                "max_tokens": self._config.llm.max_tokens * 2,
+                "temperature": 0.0,
+            }).encode()
+            req = urllib.request.Request(
+                self._config.llm.api_url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+            result = _postprocess(data["choices"][0]["message"]["content"].strip())
+
+        if result:
+            pyperclip.copy(result)
+            self._output.output(result)
+            self._post_ui("notify", f"Command: {spoken}")
+            self._post_ui("recent", result)
 
     def _emit_output(self, text: str) -> None:
         self._aggregator.append(text)
         try:
             self._output.output(text)
-            logger.info("Output: %s", text)
+            logger.debug("Output: %s", text)
             self._post_ui("notify", text)
             self._post_ui("recent", text)
         except Exception:

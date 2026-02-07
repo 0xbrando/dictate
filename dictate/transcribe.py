@@ -322,7 +322,8 @@ class TranscriptionPipeline:
             logger.info("No speech detected")
             return None
 
-        logger.info("Transcribed in %.1fs: %s", t1 - t0, raw_text)
+        logger.info("Transcribed in %.1fs (%d words)", t1 - t0, len(raw_text.split()))
+        logger.debug("Transcription text: %s", raw_text)
 
         t2 = time.time()
         cleaned_text = self._cleaner.cleanup(raw_text, output_language=output_language).strip()
@@ -333,7 +334,8 @@ class TranscriptionPipeline:
             return None
 
         if cleaned_text != raw_text:
-            logger.info("Cleaned in %.0fms: %s", (t3 - t2) * 1000, cleaned_text)
+            logger.info("Cleaned in %.0fms (%d words)", (t3 - t2) * 1000, len(cleaned_text.split()))
+            logger.debug("Cleaned text: %s", cleaned_text)
         else:
             logger.info("No changes needed (%.0fms)", (t3 - t2) * 1000)
 

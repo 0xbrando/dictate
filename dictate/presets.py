@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dictate.config import LLMBackend, LLMModel
 
@@ -13,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 PREFS_DIR = Path.home() / "Library" / "Application Support" / "Dictate"
 PREFS_FILE = PREFS_DIR / "preferences.json"
+DICTIONARY_FILE = PREFS_DIR / "dictionary.json"
 
 INPUT_LANGUAGES = [
     ("auto", "Auto-detect"),
@@ -107,6 +110,14 @@ PTT_KEYS: list[tuple[str, str]] = [
     ("alt_r", "Right Option"),
 ]
 
+COMMAND_KEYS: list[tuple[str, str]] = [
+    ("none", "Disabled"),
+    ("alt_r", "Right Option"),
+    ("alt_l", "Left Option"),
+    ("cmd_r", "Right Command"),
+    ("ctrl_r", "Right Control"),
+]
+
 
 WRITING_STYLES: list[tuple[str, str, str]] = [
     ("clean", "Clean Up", "Fixes punctuation, keeps your words"),
@@ -125,13 +136,16 @@ class Preferences:
     sound_preset: int = 0  # index into SOUND_PRESETS (default: Soft Pop)
     writing_style: str = "clean"  # key into WRITING_STYLES
     ptt_key: str = "ctrl_l"  # key into PTT_KEYS
+    command_key: str = "none"  # key into COMMAND_KEYS
     api_url: str = "http://localhost:8005/v1/chat/completions"
 
     def save(self) -> None:
         PREFS_DIR.mkdir(parents=True, exist_ok=True)
+        os.chmod(PREFS_DIR, 0o700)
         data = asdict(self)
         try:
             PREFS_FILE.write_text(json.dumps(data, indent=2))
+            os.chmod(PREFS_FILE, 0o600)
         except OSError:
             logger.exception("Failed to save preferences")
 
@@ -150,6 +164,7 @@ class Preferences:
                 sound_preset=data.get("sound_preset", 0),
                 writing_style=data.get("writing_style", "clean"),
                 ptt_key=data.get("ptt_key", "ctrl_l"),
+                command_key=data.get("command_key", "none"),
                 api_url=data.get("api_url", "http://localhost:8005/v1/chat/completions"),
             )
         except (json.JSONDecodeError, OSError):
@@ -179,6 +194,28 @@ class Preferences:
         idx = max(0, min(self.sound_preset, len(SOUND_PRESETS) - 1))
         return SOUND_PRESETS[idx]
 
+    @staticmethod
+    def _is_safe_api_url(url: str) -> bool:
+        """Only allow localhost API URLs unless explicitly overridden."""
+        try:
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https"):
+                return False
+            host = parsed.hostname or ""
+            return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+        except Exception:
+            return False
+
+    @property
+    def validated_api_url(self) -> str:
+        if self._is_safe_api_url(self.api_url):
+            return self.api_url
+        if os.environ.get("DICTATE_ALLOW_REMOTE_API") == "1":
+            logger.warning("Remote API URL allowed via DICTATE_ALLOW_REMOTE_API: %s", self.api_url)
+            return self.api_url
+        logger.warning("Blocked non-localhost API URL: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)", self.api_url)
+        return "http://localhost:8005/v1/chat/completions"
+
     @property
     def ptt_pynput_key(self) -> "Key":
         from pynput import keyboard
@@ -190,3 +227,40 @@ class Preferences:
             "alt_r": keyboard.Key.alt_r,
         }
         return key_map.get(self.ptt_key, keyboard.Key.ctrl_l)
+
+    @property
+    def command_pynput_key(self) -> "Key | None":
+        if self.command_key == "none":
+            return None
+        from pynput import keyboard
+        key_map = {
+            "ctrl_l": keyboard.Key.ctrl_l,
+            "ctrl_r": keyboard.Key.ctrl_r,
+            "cmd_r": keyboard.Key.cmd_r,
+            "alt_l": keyboard.Key.alt_l,
+            "alt_r": keyboard.Key.alt_r,
+        }
+        return key_map.get(self.command_key)
+
+    @staticmethod
+    def load_dictionary() -> list[str]:
+        if not DICTIONARY_FILE.exists():
+            return []
+        try:
+            data = json.loads(DICTIONARY_FILE.read_text())
+            if isinstance(data, list):
+                return [str(w) for w in data]
+            if isinstance(data, dict) and "words" in data:
+                return [str(w) for w in data["words"]]
+        except (json.JSONDecodeError, OSError):
+            logger.warning("Failed to load dictionary")
+        return []
+
+    @staticmethod
+    def save_default_dictionary() -> Path:
+        if not DICTIONARY_FILE.exists():
+            PREFS_DIR.mkdir(parents=True, exist_ok=True)
+            default = {"words": ["OpenClaw", "Tailscale", "MLX", "Qwen"]}
+            DICTIONARY_FILE.write_text(json.dumps(default, indent=2))
+            os.chmod(DICTIONARY_FILE, 0o600)
+        return DICTIONARY_FILE

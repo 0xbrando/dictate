@@ -93,6 +93,7 @@ class LLMConfig:
     temperature: float = 0.0
     output_language: str | None = None
     writing_style: str = "clean"
+    dictionary: list[str] | None = None
 
     @property
     def model(self) -> str:
@@ -144,11 +145,29 @@ class LLMConfig:
         }
 
         style = style_prompts.get(self.writing_style, style_prompts["clean"])
-        return f"{translation_instruction}{base}{style}"
+
+        dict_instruction = ""
+        if self.dictionary:
+            words = ", ".join(self.dictionary[:50])
+            dict_instruction = (
+                f"IMPORTANT: Always use these exact spellings when they appear: {words}. "
+            )
+
+        return f"{translation_instruction}{base}{dict_instruction}{style}"
 
     @property
     def system_prompt(self) -> str:
         return self.get_system_prompt()
+
+    def get_command_prompt(self) -> str:
+        return (
+            "You are a text editing assistant. The user will speak a command describing "
+            "how to modify text. The CLIPBOARD contains the text to modify. "
+            "Apply the spoken command to the clipboard text and output ONLY the modified result. "
+            "Common commands: 'make it shorter', 'make it formal', 'fix the grammar', "
+            "'translate to Spanish', 'rewrite as bullet points', 'delete the last sentence', "
+            "'add a greeting'. Output ONLY the final text, no explanations."
+        )
 
 @dataclass
 class KeybindConfig:
