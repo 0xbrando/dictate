@@ -15,6 +15,7 @@ import rumps
 from dictate.audio import AudioCapture, list_input_devices, play_tone
 from dictate.config import Config, OutputMode
 from collections import deque
+from pathlib import Path
 
 from dictate.icons import cleanup_temp_files, generate_reactive_icon, get_icon_path
 from dictate.output import TextAggregator, create_output_handler
@@ -69,6 +70,7 @@ class DictateMenuBarApp(rumps.App):
         self._recording_locked = False
         self._ptt_held = False
         self._is_recording = False
+        self._paused = False
         self._rms_history: deque[float] = deque([0.0] * 5, maxlen=5)
 
         self._recent: list[str] = []
@@ -116,8 +118,10 @@ class DictateMenuBarApp(rumps.App):
 
     def _build_menu(self) -> None:
         self.menu.clear()
+        pause_label = "Resume Dictation" if self._paused else "Pause Dictation"
         self.menu = [
             self._status_item,
+            rumps.MenuItem(pause_label, callback=self._on_pause_toggle),
             None,
             self._build_mic_menu(),
             self._build_quality_menu(),
@@ -129,6 +133,7 @@ class DictateMenuBarApp(rumps.App):
             None,
             self._build_recent_menu(),
             None,
+            self._build_login_toggle(),
             rumps.MenuItem("Quit Dictate", callback=self._on_quit, key="q"),
         ]
 
@@ -182,6 +187,11 @@ class DictateMenuBarApp(rumps.App):
             sound_menu.add(item)
         return sound_menu
 
+    def _build_login_toggle(self) -> rumps.MenuItem:
+        item = rumps.MenuItem("Launch at Login", callback=self._on_login_toggle)
+        item.state = self._is_launch_at_login()
+        return item
+
     def _build_llm_toggle(self) -> rumps.MenuItem:
         item = rumps.MenuItem("LLM Cleanup", callback=self._on_llm_toggle)
         item.state = self._prefs.llm_cleanup
@@ -208,6 +218,20 @@ class DictateMenuBarApp(rumps.App):
         return recent_menu
 
     # ── Menu callbacks ─────────────────────────────────────────────
+
+    def _on_pause_toggle(self, _sender: rumps.MenuItem) -> None:
+        self._paused = not self._paused
+        if self._paused:
+            if self._audio and self._audio.is_recording:
+                self._audio.stop()
+                self._is_recording = False
+            self._post_ui("status", "Paused")
+            self._post_ui("icon", "idle")
+            logger.info("Dictation paused")
+        else:
+            self._post_ui("status", "Idle")
+            logger.info("Dictation resumed")
+        self._build_menu()
 
     def _on_mic_select(self, sender: rumps.MenuItem) -> None:
         idx = sender._device_index  # type: ignore[attr-defined]
@@ -251,6 +275,54 @@ class DictateMenuBarApp(rumps.App):
         if sound.start_hz > 0:
             play_tone(self._config.tones, sound.start_hz, self._config.audio.sample_rate)
 
+    def _on_login_toggle(self, _sender: rumps.MenuItem) -> None:
+        enabled = not self._is_launch_at_login()
+        self._set_launch_at_login(enabled)
+        self._build_menu()
+
+    @staticmethod
+    def _launch_agent_path() -> Path:
+        return Path.home() / "Library" / "LaunchAgents" / "com.dictate.app.plist"
+
+    def _is_launch_at_login(self) -> bool:
+        return self._launch_agent_path().exists()
+
+    def _set_launch_at_login(self, enabled: bool) -> None:
+        import sys
+
+        plist_path = self._launch_agent_path()
+        if enabled:
+            python = sys.executable
+            project_dir = str(Path(__file__).resolve().parent.parent)
+            plist_content = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
+                ' "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                '<plist version="1.0">\n'
+                "<dict>\n"
+                "  <key>Label</key>\n"
+                "  <string>com.dictate.app</string>\n"
+                "  <key>ProgramArguments</key>\n"
+                "  <array>\n"
+                f"    <string>{python}</string>\n"
+                "    <string>-m</string>\n"
+                "    <string>dictate</string>\n"
+                "  </array>\n"
+                "  <key>WorkingDirectory</key>\n"
+                f"  <string>{project_dir}</string>\n"
+                "  <key>RunAtLoad</key>\n"
+                "  <true/>\n"
+                "</dict>\n"
+                "</plist>\n"
+            )
+            plist_path.parent.mkdir(parents=True, exist_ok=True)
+            plist_path.write_text(plist_content)
+            logger.info("Launch at Login enabled: %s", plist_path)
+        else:
+            if plist_path.exists():
+                plist_path.unlink()
+                logger.info("Launch at Login disabled")
+
     def _on_llm_toggle(self, sender: rumps.MenuItem) -> None:
         self._prefs.llm_cleanup = not self._prefs.llm_cleanup
         sender.state = self._prefs.llm_cleanup
@@ -287,6 +359,7 @@ class DictateMenuBarApp(rumps.App):
             self._config.tones.enabled = True
             self._config.tones.start_hz = sound.start_hz
             self._config.tones.stop_hz = sound.stop_hz
+            self._config.tones.style = sound.style
 
     # ── Pipeline management ────────────────────────────────────────
 
@@ -345,6 +418,8 @@ class DictateMenuBarApp(rumps.App):
         from pynput import keyboard
 
         def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
+            if self._paused:
+                return
             if key == self._config.keybinds.ptt_key:
                 self._ptt_held = True
                 if self._recording_locked:

@@ -85,14 +85,17 @@ class SoundPreset:
     label: str
     start_hz: int
     stop_hz: int
+    style: str = "simple"
 
 
 SOUND_PRESETS: list[SoundPreset] = [
-    SoundPreset(label="Default (880/440 Hz)", start_hz=880, stop_hz=440),
-    SoundPreset(label="Soft (660/330 Hz)", start_hz=660, stop_hz=330),
-    SoundPreset(label="High (1320/660 Hz)", start_hz=1320, stop_hz=660),
-    SoundPreset(label="Click (1000/500 Hz)", start_hz=1000, stop_hz=500),
-    SoundPreset(label="None", start_hz=0, stop_hz=0),
+    SoundPreset(label="Soft Pop", start_hz=880, stop_hz=660, style="soft_pop"),
+    SoundPreset(label="Chime", start_hz=880, stop_hz=660, style="chime"),
+    SoundPreset(label="Warm Harmonic", start_hz=880, stop_hz=660, style="warm"),
+    SoundPreset(label="Subtle Click", start_hz=1000, stop_hz=800, style="click"),
+    SoundPreset(label="Marimba", start_hz=880, stop_hz=660, style="marimba"),
+    SoundPreset(label="Simple Beep", start_hz=880, stop_hz=440, style="simple"),
+    SoundPreset(label="None", start_hz=0, stop_hz=0, style="simple"),
 ]
 
 
@@ -103,7 +106,7 @@ class Preferences:
     input_language: str = "auto"
     output_language: str = "auto"
     llm_cleanup: bool = True
-    sound_preset: int = 0  # index into SOUND_PRESETS
+    sound_preset: int = 0  # index into SOUND_PRESETS (default: Soft Pop)
     api_url: str = "http://localhost:8002/v1/chat/completions"
 
     def save(self) -> None:

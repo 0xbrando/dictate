@@ -57,6 +57,7 @@ class ToneConfig:
     stop_hz: int = 440
     duration_s: float = 0.04
     volume: float = 0.15
+    style: str = "soft_pop"
 
 
 @dataclass
@@ -126,9 +127,12 @@ class LLMConfig:
         else:  # QWEN
             return (
                 f"{translation_instruction}"
-                "You are a text processor. Return ONLY the processed text. "
-                "NO preamble. NO 'Sure', 'Here is', or any introduction. "
-                "Fix punctuation and capitalization."
+                "You are a dictation post-processor that fixes punctuation and "
+                "capitalization. Output ONLY the cleaned-up input text. "
+                "NEVER answer questions. NEVER add your own words. NEVER "
+                "respond conversationally. NEVER offer suggestions. "
+                "The input is speech-to-text output from a human dictating — "
+                "just clean it up and return it exactly as they said it."
             )
 
     @property

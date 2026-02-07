@@ -68,6 +68,9 @@ def get_device_name(device_id: int | None) -> str:
     return info["name"]  # type: ignore[index,return-value]
 
 
+TONE_SAMPLE_RATE = 44_100
+
+
 def play_tone(
     config: "ToneConfig",
     frequency_hz: int,
@@ -76,18 +79,104 @@ def play_tone(
     if not config.enabled:
         return
 
-    n_samples = int(sample_rate * config.duration_s)
-    t = np.arange(n_samples, dtype=np.float32) / sample_rate
-    tone = np.sin(2.0 * np.pi * frequency_hz * t) * config.volume
+    sr = TONE_SAMPLE_RATE
+    style = getattr(config, "style", "simple")
+    vol = config.volume
 
-    fade_samples = max(1, int(FADE_DURATION_SECONDS * sample_rate))
-    if fade_samples * 2 < n_samples:
-        window = np.ones(n_samples, dtype=np.float32)
-        window[:fade_samples] = np.linspace(0, 1, fade_samples, dtype=np.float32)
-        window[-fade_samples:] = np.linspace(1, 0, fade_samples, dtype=np.float32)
-        tone *= window
+    synthesizers = {
+        "soft_pop": _synth_soft_pop,
+        "chime": _synth_chime,
+        "warm": _synth_warm,
+        "click": _synth_click,
+        "marimba": _synth_marimba,
+    }
 
-    sd.play(tone.astype(np.float32), sample_rate, blocking=False)
+    synth = synthesizers.get(style)
+    if synth is not None:
+        tone = synth(frequency_hz, vol, sr)
+    else:
+        tone = _synth_simple(frequency_hz, config.duration_s, vol, sr)
+
+    sd.play(tone.astype(np.float32), sr, blocking=False)
+
+
+def _synth_simple(freq: int, duration_s: float, vol: float, sr: int) -> "NDArray":
+    n = int(sr * duration_s)
+    t = np.arange(n, dtype=np.float32) / sr
+    tone = np.sin(2.0 * np.pi * freq * t) * vol
+    fade = max(1, int(FADE_DURATION_SECONDS * sr))
+    if fade * 2 < n:
+        w = np.ones(n, dtype=np.float32)
+        w[:fade] = np.linspace(0, 1, fade, dtype=np.float32)
+        w[-fade:] = np.linspace(1, 0, fade, dtype=np.float32)
+        tone *= w
+    return tone
+
+
+def _synth_soft_pop(freq: int, vol: float, sr: int) -> "NDArray":
+    n = int(sr * 0.06)
+    t = np.arange(n, dtype=np.float32) / sr
+    env = np.exp(-t * 60)
+    tone = np.sin(2.0 * np.pi * freq * t) * env * vol
+    fade_in = min(int(sr * 0.002), n)
+    tone[:fade_in] *= np.linspace(0, 1, fade_in, dtype=np.float32)
+    return tone
+
+
+def _synth_chime(freq: int, vol: float, sr: int) -> "NDArray":
+    n = int(sr * 0.10)
+    t = np.arange(n, dtype=np.float32) / sr
+    env = np.exp(-t * 25)
+    tone = (
+        np.sin(2.0 * np.pi * freq * t) * 0.7
+        + np.sin(2.0 * np.pi * freq * 2 * t) * 0.2
+        + np.sin(2.0 * np.pi * freq * 3 * t) * 0.1
+    ) * env * vol * 0.8
+    fade_in = min(int(sr * 0.003), n)
+    tone[:fade_in] *= np.linspace(0, 1, fade_in, dtype=np.float32)
+    return tone
+
+
+def _synth_warm(freq: int, vol: float, sr: int) -> "NDArray":
+    n = int(sr * 0.08)
+    t = np.arange(n, dtype=np.float32) / sr
+    attack = min(int(sr * 0.004), n)
+    env = np.exp(-t * 30)
+    env[:attack] *= np.linspace(0, 1, attack, dtype=np.float32)
+    tone = (
+        np.sin(2.0 * np.pi * freq * t) * 0.55
+        + np.sin(2.0 * np.pi * freq * 2.0 * t) * 0.25
+        + np.sin(2.0 * np.pi * freq * 3.0 * t) * 0.12
+        + np.sin(2.0 * np.pi * freq * 4.0 * t) * 0.08
+    ) * env * vol * 0.8
+    return tone
+
+
+def _synth_click(freq: int, vol: float, sr: int) -> "NDArray":
+    n = int(sr * 0.015)
+    t = np.arange(n, dtype=np.float32) / sr
+    env = np.exp(-t * 250)
+    rng = np.random.default_rng(42)
+    noise = rng.uniform(-1, 1, n).astype(np.float32)
+    tone = (
+        np.sin(2.0 * np.pi * freq * t) * 0.6 + noise * 0.4
+    ) * env * vol * 0.5
+    return tone
+
+
+def _synth_marimba(freq: int, vol: float, sr: int) -> "NDArray":
+    n = int(sr * 0.10)
+    t = np.arange(n, dtype=np.float32) / sr
+    env = np.exp(-t * 25)
+    attack = min(int(sr * 0.002), n)
+    env[:attack] *= np.linspace(0, 1, attack, dtype=np.float32)
+    tone = (
+        np.sin(2.0 * np.pi * freq * t) * 0.6
+        + np.sin(2.0 * np.pi * freq * 3.98 * t) * 0.15
+        + np.sin(2.0 * np.pi * freq * 2.01 * t) * 0.2
+        + np.sin(2.0 * np.pi * freq * 9.1 * t) * 0.05
+    ) * env * vol * 0.8
+    return tone
 
 
 @dataclass
