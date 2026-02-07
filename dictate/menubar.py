@@ -9,7 +9,6 @@ import time
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pyperclip
 import rumps
 
 from dictate.audio import AudioCapture, list_input_devices, play_tone
@@ -331,8 +330,7 @@ class DictateMenuBarApp(rumps.App):
 
     def _on_recent_select(self, sender: rumps.MenuItem) -> None:
         text = sender._full_text  # type: ignore[attr-defined]
-        pyperclip.copy(text)
-        rumps.notification("Dictate", "", "Copied to clipboard")
+        self._output.output(text)
 
     def _on_clear_recent(self, _sender: rumps.MenuItem) -> None:
         self._recent.clear()
