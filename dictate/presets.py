@@ -63,19 +63,19 @@ QUALITY_PRESETS: list[QualityPreset] = [
         description="Uses local LLM server — instant startup",
     ),
     QualityPreset(
-        label="Speed — 3B (~700ms, 2GB)",
+        label="Fast — 3B (~250ms, 2GB)",
         llm_model=LLMModel.QWEN,
-        description="Fastest built-in — Qwen 3B",
+        description="Quick cleanup — Qwen 3B",
     ),
     QualityPreset(
-        label="Balanced — 7B (~900ms, 5GB)",
+        label="Balanced — 7B (~350ms, 5GB)",
         llm_model=LLMModel.QWEN_7B,
-        description="Better cleanup — Qwen 7B",
+        description="Better for long-form — Qwen 7B",
     ),
     QualityPreset(
-        label="Quality — 14B (~1.2s, 9GB)",
+        label="Quality — 14B (~500ms, 9GB)",
         llm_model=LLMModel.QWEN_14B,
-        description="Best accuracy — Qwen 14B",
+        description="Best for rewriting — Qwen 14B",
     ),
 ]
 
