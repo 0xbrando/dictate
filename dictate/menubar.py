@@ -23,6 +23,7 @@ from dictate.presets import (
     OUTPUT_LANGUAGES,
     QUALITY_PRESETS,
     SOUND_PRESETS,
+    WRITING_STYLES,
     Preferences,
 )
 from dictate.transcribe import TranscriptionPipeline
@@ -126,6 +127,7 @@ class DictateMenuBarApp(rumps.App):
             self._build_quality_menu(),
             self._build_sound_menu(),
             None,
+            self._build_writing_style_menu(),
             self._build_input_lang_menu(),
             self._build_output_lang_menu(),
             self._build_llm_toggle(),
@@ -185,6 +187,15 @@ class DictateMenuBarApp(rumps.App):
             item._sound_index = i  # type: ignore[attr-defined]
             sound_menu.add(item)
         return sound_menu
+
+    def _build_writing_style_menu(self) -> rumps.MenuItem:
+        style_menu = rumps.MenuItem("Writing Style")
+        for key, label in WRITING_STYLES:
+            item = rumps.MenuItem(label, callback=self._on_writing_style_select)
+            item.state = key == self._prefs.writing_style
+            item._style_key = key  # type: ignore[attr-defined]
+            style_menu.add(item)
+        return style_menu
 
     def _build_login_toggle(self) -> rumps.MenuItem:
         item = rumps.MenuItem("Launch at Login", callback=self._on_login_toggle)
@@ -274,6 +285,13 @@ class DictateMenuBarApp(rumps.App):
         if sound.start_hz > 0:
             play_tone(self._config.tones, sound.start_hz, self._config.audio.sample_rate)
 
+    def _on_writing_style_select(self, sender: rumps.MenuItem) -> None:
+        key = sender._style_key  # type: ignore[attr-defined]
+        self._prefs.writing_style = key
+        self._prefs.save()
+        self._apply_prefs()
+        self._build_menu()
+
     def _on_login_toggle(self, _sender: rumps.MenuItem) -> None:
         enabled = not self._is_launch_at_login()
         self._set_launch_at_login(enabled)
@@ -350,6 +368,7 @@ class DictateMenuBarApp(rumps.App):
         self._config.llm.backend = self._prefs.backend
         self._config.llm.api_url = self._prefs.api_url
         self._config.llm.enabled = self._prefs.llm_cleanup
+        self._config.llm.writing_style = self._prefs.writing_style
         sound = self._prefs.sound
         if sound.start_hz == 0:
             self._config.tones.enabled = False

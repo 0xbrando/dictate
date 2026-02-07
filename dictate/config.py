@@ -88,10 +88,11 @@ class LLMConfig:
     enabled: bool = True
     backend: LLMBackend = LLMBackend.LOCAL
     model_choice: LLMModel = LLMModel.QWEN
-    api_url: str = "http://localhost:8002/v1/chat/completions"
+    api_url: str = "http://localhost:8005/v1/chat/completions"
     max_tokens: int = 300
     temperature: float = 0.0
     output_language: str | None = None
+    writing_style: str = "clean"
 
     @property
     def model(self) -> str:
@@ -105,7 +106,7 @@ class LLMConfig:
 
     def get_system_prompt(self, output_language: str | None = None) -> str:
         target_lang = output_language if output_language is not None else self.output_language
-        
+
         if target_lang:
             lang_name = LANGUAGE_NAMES.get(target_lang, target_lang)
             translation_instruction = (
@@ -115,25 +116,35 @@ class LLMConfig:
         else:
             translation_instruction = ""
 
-        if self.model_choice in (LLMModel.PHI3,):
-            return (
-                f"{translation_instruction}"
-                "You are a speech-to-text post-processor. Your job is to fix "
-                "punctuation, capitalization, and obvious transcription errors. "
-                "Output ONLY the corrected text. Do NOT answer questions. "
-                "Do NOT add commentary. Do NOT explain. Do NOT converse. "
-                "Just output the cleaned-up version of the input text, nothing else."
-            )
-        else:  # QWEN
-            return (
-                f"{translation_instruction}"
-                "You are a dictation post-processor that fixes punctuation and "
-                "capitalization. Output ONLY the cleaned-up input text. "
-                "NEVER answer questions. NEVER add your own words. NEVER "
-                "respond conversationally. NEVER offer suggestions. "
-                "The input is speech-to-text output from a human dictating — "
-                "just clean it up and return it exactly as they said it."
-            )
+        base = (
+            "The input is speech-to-text output from a human dictating. "
+            "NEVER answer questions. NEVER add your own words. "
+            "NEVER respond conversationally. NEVER offer suggestions. "
+        )
+
+        style_prompts = {
+            "clean": (
+                "You are a dictation post-processor. "
+                "Fix punctuation and capitalization. "
+                "Output ONLY the cleaned-up text exactly as they said it."
+            ),
+            "formal": (
+                "You are a dictation post-processor. "
+                "Rewrite in a professional, formal tone. "
+                "Use proper grammar and complete sentences. "
+                "Output ONLY the rewritten text."
+            ),
+            "bullets": (
+                "You are a dictation post-processor. "
+                "Convert the dictation into concise bullet points. "
+                "Strip filler words and extract key ideas. "
+                "Each bullet should be one clear action or point. "
+                "Output ONLY the bullet points."
+            ),
+        }
+
+        style = style_prompts.get(self.writing_style, style_prompts["clean"])
+        return f"{translation_instruction}{base}{style}"
 
     @property
     def system_prompt(self) -> str:

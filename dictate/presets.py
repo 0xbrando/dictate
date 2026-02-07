@@ -57,7 +57,7 @@ class QualityPreset:
 
 QUALITY_PRESETS: list[QualityPreset] = [
     QualityPreset(
-        label="API Server (~700ms, 0 RAM)",
+        label="API Server (~250ms, 0 RAM)",
         llm_model=LLMModel.QWEN,
         backend=LLMBackend.API,
         description="Uses local LLM server — instant startup",
@@ -99,6 +99,13 @@ SOUND_PRESETS: list[SoundPreset] = [
 ]
 
 
+WRITING_STYLES: list[tuple[str, str]] = [
+    ("clean", "Clean Up"),
+    ("formal", "Formal"),
+    ("bullets", "Bullet Points"),
+]
+
+
 @dataclass
 class Preferences:
     device_id: int | None = None
@@ -107,7 +114,8 @@ class Preferences:
     output_language: str = "auto"
     llm_cleanup: bool = True
     sound_preset: int = 0  # index into SOUND_PRESETS (default: Soft Pop)
-    api_url: str = "http://localhost:8002/v1/chat/completions"
+    writing_style: str = "clean"  # key into WRITING_STYLES
+    api_url: str = "http://localhost:8005/v1/chat/completions"
 
     def save(self) -> None:
         PREFS_DIR.mkdir(parents=True, exist_ok=True)
@@ -130,6 +138,7 @@ class Preferences:
                 output_language=data.get("output_language", "auto"),
                 llm_cleanup=data.get("llm_cleanup", True),
                 sound_preset=data.get("sound_preset", 0),
+                writing_style=data.get("writing_style", "clean"),
                 api_url=data.get("api_url", "http://localhost:8002/v1/chat/completions"),
             )
         except (json.JSONDecodeError, OSError):
