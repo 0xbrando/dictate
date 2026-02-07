@@ -99,6 +99,15 @@ SOUND_PRESETS: list[SoundPreset] = [
 ]
 
 
+PTT_KEYS: list[tuple[str, str]] = [
+    ("ctrl_l", "Left Control"),
+    ("ctrl_r", "Right Control"),
+    ("cmd_r", "Right Command"),
+    ("alt_l", "Left Option"),
+    ("alt_r", "Right Option"),
+]
+
+
 WRITING_STYLES: list[tuple[str, str, str]] = [
     ("clean", "Clean Up", "Fixes punctuation — keeps your words"),
     ("formal", "Formal", "Professional tone and grammar"),
@@ -115,6 +124,7 @@ class Preferences:
     llm_cleanup: bool = True
     sound_preset: int = 0  # index into SOUND_PRESETS (default: Soft Pop)
     writing_style: str = "clean"  # key into WRITING_STYLES
+    ptt_key: str = "ctrl_l"  # key into PTT_KEYS
     api_url: str = "http://localhost:8005/v1/chat/completions"
 
     def save(self) -> None:
@@ -139,7 +149,8 @@ class Preferences:
                 llm_cleanup=data.get("llm_cleanup", True),
                 sound_preset=data.get("sound_preset", 0),
                 writing_style=data.get("writing_style", "clean"),
-                api_url=data.get("api_url", "http://localhost:8002/v1/chat/completions"),
+                ptt_key=data.get("ptt_key", "ctrl_l"),
+                api_url=data.get("api_url", "http://localhost:8005/v1/chat/completions"),
             )
         except (json.JSONDecodeError, OSError):
             logger.exception("Failed to load preferences, using defaults")
@@ -167,3 +178,15 @@ class Preferences:
     def sound(self) -> SoundPreset:
         idx = max(0, min(self.sound_preset, len(SOUND_PRESETS) - 1))
         return SOUND_PRESETS[idx]
+
+    @property
+    def ptt_pynput_key(self) -> "Key":
+        from pynput import keyboard
+        key_map = {
+            "ctrl_l": keyboard.Key.ctrl_l,
+            "ctrl_r": keyboard.Key.ctrl_r,
+            "cmd_r": keyboard.Key.cmd_r,
+            "alt_l": keyboard.Key.alt_l,
+            "alt_r": keyboard.Key.alt_r,
+        }
+        return key_map.get(self.ptt_key, keyboard.Key.ctrl_l)

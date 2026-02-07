@@ -21,6 +21,7 @@ from dictate.output import TextAggregator, create_output_handler
 from dictate.presets import (
     INPUT_LANGUAGES,
     OUTPUT_LANGUAGES,
+    PTT_KEYS,
     QUALITY_PRESETS,
     SOUND_PRESETS,
     WRITING_STYLES,
@@ -124,6 +125,7 @@ class DictateMenuBarApp(rumps.App):
             rumps.MenuItem(pause_label, callback=self._on_pause_toggle),
             None,
             self._build_mic_menu(),
+            self._build_ptt_key_menu(),
             self._build_quality_menu(),
             self._build_sound_menu(),
             None,
@@ -151,6 +153,15 @@ class DictateMenuBarApp(rumps.App):
             item._device_index = dev.index  # type: ignore[attr-defined]
             mic_menu.add(item)
         return mic_menu
+
+    def _build_ptt_key_menu(self) -> rumps.MenuItem:
+        ptt_menu = rumps.MenuItem("Push-to-Talk Key")
+        for key_id, label in PTT_KEYS:
+            item = rumps.MenuItem(label, callback=self._on_ptt_key_select)
+            item.state = key_id == self._prefs.ptt_key
+            item._key_id = key_id  # type: ignore[attr-defined]
+            ptt_menu.add(item)
+        return ptt_menu
 
     def _build_quality_menu(self) -> rumps.MenuItem:
         quality_menu = rumps.MenuItem("Quality")
@@ -248,6 +259,13 @@ class DictateMenuBarApp(rumps.App):
         else:
             self._post_ui("status", "Idle")
             logger.info("Dictation resumed")
+        self._build_menu()
+
+    def _on_ptt_key_select(self, sender: rumps.MenuItem) -> None:
+        key_id = sender._key_id  # type: ignore[attr-defined]
+        self._prefs.ptt_key = key_id
+        self._prefs.save()
+        self._apply_prefs()
         self._build_menu()
 
     def _on_mic_select(self, sender: rumps.MenuItem) -> None:
@@ -376,6 +394,7 @@ class DictateMenuBarApp(rumps.App):
         self._config.llm.api_url = self._prefs.api_url
         self._config.llm.enabled = self._prefs.llm_cleanup
         self._config.llm.writing_style = self._prefs.writing_style
+        self._config.keybinds.ptt_key = self._prefs.ptt_pynput_key
         sound = self._prefs.sound
         if sound.start_hz == 0:
             self._config.tones.enabled = False
