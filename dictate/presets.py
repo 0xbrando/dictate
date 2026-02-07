@@ -7,7 +7,7 @@ import logging
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from dictate.config import LLMModel
+from dictate.config import LLMBackend, LLMModel
 
 logger = logging.getLogger(__name__)
 
@@ -51,22 +51,29 @@ OUTPUT_LANGUAGES = [
 class QualityPreset:
     label: str
     llm_model: LLMModel
-    description: str
+    backend: LLMBackend = LLMBackend.LOCAL
+    description: str = ""
 
 
 QUALITY_PRESETS: list[QualityPreset] = [
     QualityPreset(
-        label="Speed (3B)",
+        label="API Server (~700ms, 0 RAM)",
         llm_model=LLMModel.QWEN,
-        description="Fastest — Qwen 3B",
+        backend=LLMBackend.API,
+        description="Uses local LLM server — instant startup",
     ),
     QualityPreset(
-        label="Balanced (7B)",
+        label="Speed — 3B (~700ms, 2GB)",
+        llm_model=LLMModel.QWEN,
+        description="Fastest built-in — Qwen 3B",
+    ),
+    QualityPreset(
+        label="Balanced — 7B (~900ms, 5GB)",
         llm_model=LLMModel.QWEN_7B,
         description="Better cleanup — Qwen 7B",
     ),
     QualityPreset(
-        label="Quality (14B)",
+        label="Quality — 14B (~1.2s, 9GB)",
         llm_model=LLMModel.QWEN_14B,
         description="Best accuracy — Qwen 14B",
     ),
@@ -92,11 +99,12 @@ SOUND_PRESETS: list[SoundPreset] = [
 @dataclass
 class Preferences:
     device_id: int | None = None
-    quality_preset: int = 0  # index into QUALITY_PRESETS
+    quality_preset: int = 1  # index into QUALITY_PRESETS (default: Speed 3B)
     input_language: str = "auto"
     output_language: str = "auto"
     llm_cleanup: bool = True
     sound_preset: int = 0  # index into SOUND_PRESETS
+    api_url: str = "http://localhost:8002/v1/chat/completions"
 
     def save(self) -> None:
         PREFS_DIR.mkdir(parents=True, exist_ok=True)
@@ -114,11 +122,12 @@ class Preferences:
             data = json.loads(PREFS_FILE.read_text())
             return cls(
                 device_id=data.get("device_id"),
-                quality_preset=data.get("quality_preset", 0),
+                quality_preset=data.get("quality_preset", 1),
                 input_language=data.get("input_language", "auto"),
                 output_language=data.get("output_language", "auto"),
                 llm_cleanup=data.get("llm_cleanup", True),
                 sound_preset=data.get("sound_preset", 0),
+                api_url=data.get("api_url", "http://localhost:8002/v1/chat/completions"),
             )
         except (json.JSONDecodeError, OSError):
             logger.exception("Failed to load preferences, using defaults")
@@ -128,6 +137,11 @@ class Preferences:
     def llm_model(self) -> LLMModel:
         idx = max(0, min(self.quality_preset, len(QUALITY_PRESETS) - 1))
         return QUALITY_PRESETS[idx].llm_model
+
+    @property
+    def backend(self) -> LLMBackend:
+        idx = max(0, min(self.quality_preset, len(QUALITY_PRESETS) - 1))
+        return QUALITY_PRESETS[idx].backend
 
     @property
     def whisper_language(self) -> str | None:

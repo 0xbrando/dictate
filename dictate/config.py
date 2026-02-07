@@ -18,6 +18,11 @@ class OutputMode(str, Enum):
     CLIPBOARD = "clipboard"
 
 
+class LLMBackend(str, Enum):
+    LOCAL = "local"
+    API = "api"
+
+
 class LLMModel(str, Enum):
     PHI3 = "phi3"
     QWEN = "qwen"
@@ -80,7 +85,9 @@ LANGUAGE_NAMES = {
 @dataclass
 class LLMConfig:
     enabled: bool = True
+    backend: LLMBackend = LLMBackend.LOCAL
     model_choice: LLMModel = LLMModel.QWEN
+    api_url: str = "http://localhost:8002/v1/chat/completions"
     max_tokens: int = 300
     temperature: float = 0.0
     output_language: str | None = None
@@ -179,4 +186,16 @@ class Config:
                 config.llm.model_choice = LLMModel(llm_model.lower())
             except ValueError:
                 pass  # Keep default if invalid value
+
+        # LLM backend (local or api)
+        if llm_backend := os.environ.get("DICTATE_LLM_BACKEND"):
+            try:
+                config.llm.backend = LLMBackend(llm_backend.lower())
+            except ValueError:
+                pass
+
+        # LLM API URL (for api backend)
+        if api_url := os.environ.get("DICTATE_LLM_API_URL"):
+            config.llm.api_url = api_url
+
         return config

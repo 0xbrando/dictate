@@ -277,6 +277,8 @@ class DictateMenuBarApp(rumps.App):
         self._config.whisper.language = self._prefs.whisper_language
         self._config.llm.output_language = self._prefs.llm_output_language
         self._config.llm.model_choice = self._prefs.llm_model
+        self._config.llm.backend = self._prefs.backend
+        self._config.llm.api_url = self._prefs.api_url
         self._config.llm.enabled = self._prefs.llm_cleanup
         sound = self._prefs.sound
         if sound.start_hz == 0:

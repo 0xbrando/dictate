@@ -2,27 +2,28 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import tempfile
+import urllib.request
 from typing import TYPE_CHECKING
 
 # Suppress huggingface/tqdm progress bars (must be set before imports)
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 import mlx_whisper
-from mlx_lm import generate, load
-from mlx_lm.sample_utils import make_sampler
 from scipy.io.wavfile import write as wav_write
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     import numpy as np
-    from mlx.nn import Module
 
     from dictate.config import LLMConfig, WhisperConfig
 
 logger = logging.getLogger(__name__)
+
+API_TIMEOUT_SECONDS = 15
 
 
 class WhisperTranscriber:
@@ -33,13 +34,13 @@ class WhisperTranscriber:
     def load_model(self) -> None:
         if self._model_loaded:
             return
-        
+
         print(f"   Whisper: {self._config.model}...", end=" ", flush=True)
-        
+
         import numpy as np
         silent_audio = np.zeros(16000, dtype=np.int16)
         wav_path = self._save_temp_wav(silent_audio, 16000)
-        
+
         try:
             mlx_whisper.transcribe(
                 wav_path,
@@ -92,17 +93,104 @@ class WhisperTranscriber:
             logger.warning("Failed to remove temp file %s: %s", path, e)
 
 
+# ── Shared postprocessing ────────────────────────────────────────
+
+
+def _postprocess(text: str) -> str:
+    """Clean up LLM output: strip special tokens, preambles, quotes."""
+    special_tokens = [
+        "<|end|>",
+        "<|endoftext|>",
+        "<|im_end|>",
+        "<|eot_id|>",
+        "</s>",
+    ]
+    for token in special_tokens:
+        text = text.replace(token, "")
+    text = text.strip()
+    text_lower = text.lower()
+
+    preambles = [
+        "Sure, here's the corrected text:",
+        "Sure, here is the corrected text:",
+        "Sure, here's the text:",
+        "Sure, here is the text:",
+        "Sure, here you go:",
+        "Sure!",
+        "Sure:",
+        "Sure,",
+        "Here's the corrected text:",
+        "Here is the corrected text:",
+        "Here's the formatted text:",
+        "Here is the formatted text:",
+        "Here's the text:",
+        "Here is the text:",
+        "Here you go:",
+        "Here it is:",
+        "Corrected text:",
+        "Corrected:",
+        "Fixed text:",
+        "Fixed:",
+        "Formatted text:",
+        "Formatted:",
+        "The corrected text is:",
+        "The corrected text:",
+        "The text:",
+        "I've corrected the text:",
+        "I have corrected the text:",
+        "I fixed the text:",
+        "Of course!",
+        "Of course:",
+        "Of course,",
+        "Certainly!",
+        "Certainly:",
+        "Certainly,",
+        "Output:",
+        "Result:",
+        "Answer:",
+    ]
+
+    for preamble in preambles:
+        if text_lower.startswith(preamble.lower()):
+            text = text[len(preamble):].strip()
+            text_lower = text.lower()
+
+    if len(text) >= 2 and text.startswith('"') and text.endswith('"'):
+        text = text[1:-1]
+    if len(text) >= 2 and text.startswith("'") and text.endswith("'"):
+        text = text[1:-1]
+
+    text = text.lstrip('\n')
+
+    lines = text.split("\n")
+    if not lines:
+        return text
+
+    first_line = lines[0].strip()
+    if len(lines) > 1 and lines[1].strip() == first_line:
+        logger.warning("Detected repetition in LLM output, truncating")
+        return first_line
+
+    return text
+
+
+# ── Text cleaners ────────────────────────────────────────────────
+
+
 class TextCleaner:
+    """Cleans up transcription text using a local MLX model."""
+
     def __init__(self, config: "LLMConfig") -> None:
         self._config = config
-        self._model: "Module | None" = None
+        self._model = None
         self._tokenizer = None
 
     def load_model(self) -> None:
         if self._model is not None:
             return
 
-        print(f"   Qwen: {self._config.model}...", end=" ", flush=True)
+        from mlx_lm import load
+        print(f"   LLM: {self._config.model}...", end=" ", flush=True)
         self._model, self._tokenizer = load(self._config.model)
         print("✓")
 
@@ -113,118 +201,82 @@ class TextCleaner:
         if self._model is None or self._tokenizer is None:
             self.load_model()
 
-        system_prompt = self._config.get_system_prompt(output_language)
+        from mlx_lm import generate
+        from mlx_lm.sample_utils import make_sampler
 
+        system_prompt = self._config.get_system_prompt(output_language)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text},
         ]
         prompt = self._tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
+            messages, tokenize=False, add_generation_prompt=True,
         )
 
         input_words = len(text.split())
         max_tokens = min(self._config.max_tokens, max(50, input_words * 3))
-
         sampler = make_sampler(temp=self._config.temperature)
-        
+
         result = generate(
-            self._model,
-            self._tokenizer,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            sampler=sampler,
+            self._model, self._tokenizer,
+            prompt=prompt, max_tokens=max_tokens, sampler=sampler,
         )
-        
         logger.debug("LLM raw result: %r", result)
+        return _postprocess(result.strip())
 
-        return self._postprocess(result.strip())
 
-    def _postprocess(self, text: str) -> str:
-        special_tokens = [
-            "<|end|>",
-            "<|endoftext|>",
-            "<|im_end|>",
-            "<|eot_id|>",
-            "</s>",
-        ]
-        for token in special_tokens:
-            text = text.replace(token, "")
-        text = text.strip()
-        text_lower = text.lower()
-        
-        preambles = [
-            # "Sure" variants
-            "Sure, here's the corrected text:",
-            "Sure, here is the corrected text:",
-            "Sure, here's the text:",
-            "Sure, here is the text:",
-            "Sure, here you go:",
-            "Sure!",
-            "Sure:",
-            "Sure,",
-            # "Here" variants
-            "Here's the corrected text:",
-            "Here is the corrected text:",
-            "Here's the formatted text:",
-            "Here is the formatted text:",
-            "Here's the text:",
-            "Here is the text:",
-            "Here you go:",
-            "Here it is:",
-            # "Corrected/Fixed" variants
-            "Corrected text:",
-            "Corrected:",
-            "Fixed text:",
-            "Fixed:",
-            "Formatted text:",
-            "Formatted:",
-            # "The" variants
-            "The corrected text is:",
-            "The corrected text:",
-            "The text:",
-            # "I" variants
-            "I've corrected the text:",
-            "I have corrected the text:",
-            "I fixed the text:",
-            # "Of course" variants
-            "Of course!",
-            "Of course:",
-            "Of course,",
-            # "Certainly" variants
-            "Certainly!",
-            "Certainly:",
-            "Certainly,",
-            # Other
-            "Output:",
-            "Result:",
-            "Answer:",
-        ]
-        
-        for preamble in preambles:
-            if text_lower.startswith(preamble.lower()):
-                text = text[len(preamble):].strip()
-                text_lower = text.lower()
-        
-        if len(text) >= 2 and text.startswith('"') and text.endswith('"'):
-            text = text[1:-1]
-        if len(text) >= 2 and text.startswith("'") and text.endswith("'"):
-            text = text[1:-1]
-        
-        text = text.lstrip('\n')
-        
-        lines = text.split("\n")
-        if not lines:
+class APITextCleaner:
+    """Cleans up transcription text via an OpenAI-compatible API server."""
+
+    def __init__(self, config: "LLMConfig") -> None:
+        self._config = config
+
+    def load_model(self) -> None:
+        """No model to load — verify server is reachable."""
+        url = self._config.api_url.replace("/chat/completions", "").rstrip("/")
+        try:
+            req = urllib.request.Request(f"{url}/models", method="GET")
+            with urllib.request.urlopen(req, timeout=3):
+                pass
+            print(f"   API: {self._config.api_url} ✓")
+        except Exception:
+            print(f"   API: {self._config.api_url} (will retry on first use)")
+
+    def cleanup(self, text: str, output_language: str | None = None) -> str:
+        if not self._config.enabled:
             return text
 
-        first_line = lines[0].strip()
-        if len(lines) > 1 and lines[1].strip() == first_line:
-            logger.warning("Detected repetition in LLM output, truncating")
-            return first_line
+        system_prompt = self._config.get_system_prompt(output_language)
+        input_words = len(text.split())
+        max_tokens = min(self._config.max_tokens, max(50, input_words * 3))
 
-        return text
+        payload = json.dumps({
+            "model": "default",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": self._config.temperature,
+        }).encode()
+
+        req = urllib.request.Request(
+            self._config.api_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+                result = json.loads(resp.read())
+            content = result["choices"][0]["message"]["content"].strip()
+            return _postprocess(content)
+        except Exception:
+            logger.exception("API cleanup failed, returning raw text")
+            return text
+
+
+# ── Pipeline ─────────────────────────────────────────────────────
 
 
 class TranscriptionPipeline:
@@ -233,8 +285,13 @@ class TranscriptionPipeline:
         whisper_config: "WhisperConfig",
         llm_config: "LLMConfig",
     ) -> None:
+        from dictate.config import LLMBackend
+
         self._whisper = WhisperTranscriber(whisper_config)
-        self._cleaner = TextCleaner(llm_config)
+        if llm_config.backend == LLMBackend.API:
+            self._cleaner: TextCleaner | APITextCleaner = APITextCleaner(llm_config)
+        else:
+            self._cleaner = TextCleaner(llm_config)
         self._sample_rate = 16_000
 
     def set_sample_rate(self, sample_rate: int) -> None:
@@ -250,10 +307,11 @@ class TranscriptionPipeline:
         input_language: str | None = None,
         output_language: str | None = None,
     ) -> str | None:
-        duration_s = len(audio) / self._sample_rate
-        print(f"⏳ Processing {duration_s:.1f}s of audio...")
-
         import time
+
+        duration_s = len(audio) / self._sample_rate
+        logger.info("Processing %.1fs of audio...", duration_s)
+
         t0 = time.time()
         raw_text = self._whisper.transcribe(
             audio, self._sample_rate, language=input_language
@@ -261,22 +319,22 @@ class TranscriptionPipeline:
         t1 = time.time()
 
         if not raw_text:
-            print("   ⚠️ No speech detected")
+            logger.info("No speech detected")
             return None
 
-        print(f"   📝 Heard: \"{raw_text}\" ({t1-t0:.1f}s)")
+        logger.info("Transcribed in %.1fs: %s", t1 - t0, raw_text)
 
         t2 = time.time()
         cleaned_text = self._cleaner.cleanup(raw_text, output_language=output_language).strip()
         t3 = time.time()
 
         if not cleaned_text:
-            print("   ⚠️ Cleanup failed")
+            logger.info("Cleanup failed")
             return None
 
         if cleaned_text != raw_text:
-            print(f"   ✨ Fixed: \"{cleaned_text}\" ({t3-t2:.1f}s)")
+            logger.info("Cleaned in %.0fms: %s", (t3 - t2) * 1000, cleaned_text)
         else:
-            print(f"   ✓ No changes needed ({t3-t2:.1f}s)")
+            logger.info("No changes needed (%.0fms)", (t3 - t2) * 1000)
 
         return cleaned_text
