@@ -60,22 +60,22 @@ QUALITY_PRESETS: list[QualityPreset] = [
         label="API Server (~250ms, 0 RAM)",
         llm_model=LLMModel.QWEN,
         backend=LLMBackend.API,
-        description="Uses local LLM server — instant startup",
+        description="Uses local LLM server, instant startup",
     ),
     QualityPreset(
-        label="Fast — 3B (~250ms, 2GB)",
+        label="Fast - 3B (~250ms, 2GB)",
         llm_model=LLMModel.QWEN,
-        description="Quick cleanup — Qwen 3B",
+        description="Quick cleanup, Qwen 3B",
     ),
     QualityPreset(
-        label="Balanced — 7B (~350ms, 5GB)",
+        label="Balanced - 7B (~350ms, 5GB)",
         llm_model=LLMModel.QWEN_7B,
-        description="Better for long-form — Qwen 7B",
+        description="Better for long-form, Qwen 7B",
     ),
     QualityPreset(
-        label="Quality — 14B (~500ms, 9GB)",
+        label="Quality - 14B (~500ms, 9GB)",
         llm_model=LLMModel.QWEN_14B,
-        description="Best for rewriting — Qwen 14B",
+        description="Best for rewriting, Qwen 14B",
     ),
 ]
 
@@ -109,7 +109,7 @@ PTT_KEYS: list[tuple[str, str]] = [
 
 
 WRITING_STYLES: list[tuple[str, str, str]] = [
-    ("clean", "Clean Up", "Fixes punctuation — keeps your words"),
+    ("clean", "Clean Up", "Fixes punctuation, keeps your words"),
     ("formal", "Formal", "Professional tone and grammar"),
     ("bullets", "Bullet Points", "Distills into key points"),
 ]
