@@ -95,6 +95,21 @@ If you run a local LLM server (vllm-mlx, LM Studio, Ollama, etc.), Dictate can u
 DICTATE_LLM_BACKEND=api DICTATE_LLM_API_URL=http://localhost:8005/v1/chat/completions python -m dictate
 ```
 
+**Recommended models for dictation cleanup:**
+
+| Model | Size | Speed | Notes |
+|-------|------|-------|-------|
+| Qwen2.5-3B-Instruct-4bit | 2GB | ~250ms | Best speed/quality ratio. What we use. |
+| Qwen2.5-7B-Instruct-4bit | 5GB | ~350ms | Better for formal rewriting and bullet points |
+| Qwen3-Coder-Next (80B MoE) | 50GB | ~650ms | Overkill for cleanup, but great if you already run it |
+
+Smaller models (< 1B) tend to answer questions instead of cleaning text — not recommended. The 3B sweet spot handles punctuation, capitalization, and rewriting reliably without hallucinating.
+
+**Serving options:**
+- [vllm-mlx](https://github.com/vllm-project/vllm-mlx) — fastest for Apple Silicon, OpenAI-compatible out of the box
+- [LM Studio](https://lmstudio.ai) — GUI, easy model management, local server built in
+- [Ollama](https://ollama.com) — `ollama run qwen2.5:3b` then point Dictate at `http://localhost:11434/v1/chat/completions`
+
 ## How It Works
 
 ```
