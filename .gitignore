@@ -1,0 +1,67 @@
+# Configuration
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# MLX model cache (large files, downloaded on demand)
+mlx_models/
+
+# Audio temp files
+*.wav
+ptt_chunk_*.wav
+dictate_*.wav
+
+# Claude Code config
+.claude/
