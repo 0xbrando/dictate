@@ -38,11 +38,7 @@ def recommended_quality_preset() -> int:
     chip = detect_chip().lower()
     if "ultra" in chip or "max" in chip:
         return 2  # Fast - 3B (plenty fast on Ultra/Max)
-    if any(x in chip for x in ("m3", "m4", "m5")):
-        return 1  # Speedy - 1.5B (good balance for M3+)
-    if any(x in chip for x in ("m1", "m2")):
-        return 1  # Speedy - 1.5B (smallest that still works well)
-    return 1  # default to Speedy
+    return 1  # Speedy - 1.5B (good default for all chips)
 
 PREFS_DIR = Path.home() / "Library" / "Application Support" / "Dictate"
 PREFS_FILE = PREFS_DIR / "preferences.json"
@@ -91,10 +87,10 @@ class QualityPreset:
 
 QUALITY_PRESETS: list[QualityPreset] = [
     QualityPreset(
-        label="API Server (~250ms, 0 RAM)",
+        label="Smart (~250ms, 0 RAM)",
         llm_model=LLMModel.QWEN,
         backend=LLMBackend.API,
-        description="Uses local LLM server, instant startup",
+        description="Fast local for short, API server for long",
     ),
     QualityPreset(
         label="Speedy - 1.5B (~120ms, 1GB)",
@@ -165,16 +161,16 @@ class STTPreset:
 
 STT_PRESETS: list[STTPreset] = [
     STTPreset(
-        label="Whisper Large V3 Turbo (default)",
+        label="Whisper (default)",
         engine=STTEngine.WHISPER,
         model="mlx-community/whisper-large-v3-turbo",
-        description="Best multilingual, 99+ languages",
+        description="99+ languages",
     ),
     STTPreset(
-        label="Parakeet TDT 0.6B v3 (fastest)",
+        label="Parakeet (faster)",
         engine=STTEngine.PARAKEET,
         model="mlx-community/parakeet-tdt-0.6b-v3",
-        description="4-8x faster, 25 languages, needs: pip install parakeet-mlx",
+        description="pip install parakeet-mlx",
     ),
 ]
 
@@ -199,6 +195,7 @@ class Preferences:
     ptt_key: str = "ctrl_l"  # key into PTT_KEYS
     command_key: str = "none"  # key into COMMAND_KEYS
     api_url: str = "http://localhost:8005/v1/chat/completions"
+    advanced_mode: bool = False
 
     def save(self) -> None:
         PREFS_DIR.mkdir(parents=True, exist_ok=True)
@@ -232,7 +229,6 @@ class Preferences:
             if version == 1 and raw_preset >= 1:
                 raw_preset += 1  # v1 1→2, 2→3, 3→4
             elif version == 2:
-                # v2→v3: 0.5B (idx 1) removed, shift down
                 if raw_preset <= 1:
                     raw_preset = max(0, raw_preset)  # API stays 0, 0.5B→1.5B(1)
                 elif raw_preset >= 2:
@@ -249,6 +245,7 @@ class Preferences:
                 ptt_key=data.get("ptt_key", "ctrl_l"),
                 command_key=data.get("command_key", "none"),
                 api_url=data.get("api_url", "http://localhost:8005/v1/chat/completions"),
+                advanced_mode=data.get("advanced_mode", False),
             )
         except (json.JSONDecodeError, OSError):
             logger.exception("Failed to load preferences, using defaults")
@@ -350,10 +347,7 @@ class Preferences:
         return []
 
     @staticmethod
-    def save_default_dictionary() -> Path:
-        if not DICTIONARY_FILE.exists():
-            PREFS_DIR.mkdir(parents=True, exist_ok=True)
-            default = {"words": ["OpenClaw", "Tailscale", "MLX", "Qwen"]}
-            DICTIONARY_FILE.write_text(json.dumps(default, indent=2))
-            os.chmod(DICTIONARY_FILE, 0o600)
-        return DICTIONARY_FILE
+    def save_dictionary(words: list[str]) -> None:
+        PREFS_DIR.mkdir(parents=True, exist_ok=True)
+        DICTIONARY_FILE.write_text(json.dumps({"words": words}, indent=2))
+        os.chmod(DICTIONARY_FILE, 0o600)

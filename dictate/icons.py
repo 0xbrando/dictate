@@ -17,7 +17,7 @@ import zlib
 # 144 DPI → 5669 pixels-per-meter (PNG pHYs chunk)
 _PPM_144DPI = 5669
 _ICON_SIZE = 36
-_BOTTOM_PAD = 4
+_BOTTOM_PAD = 2  # shifted up slightly vs original 4
 _BAR_WIDTH = 3
 _BAR_GAP = 3
 

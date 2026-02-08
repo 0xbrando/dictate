@@ -12,23 +12,20 @@ import numpy as np
 import rumps
 
 from dictate.audio import AudioCapture, list_input_devices, play_tone
-from dictate.config import Config, OutputMode
+from dictate.config import Config, OutputMode, is_model_cached, WHISPER_MODEL
 from collections import deque
 from pathlib import Path
 
 from dictate.icons import cleanup_temp_files, generate_reactive_icon, get_icon_path
 from dictate.output import TextAggregator, create_output_handler
 from dictate.presets import (
-    COMMAND_KEYS,
     INPUT_LANGUAGES,
     OUTPUT_LANGUAGES,
     PTT_KEYS,
     QUALITY_PRESETS,
     SOUND_PRESETS,
-    STT_PRESETS,
     WRITING_STYLES,
     Preferences,
-    detect_chip,
 )
 from dictate.transcribe import TranscriptionPipeline
 
@@ -73,15 +70,18 @@ class DictateMenuBarApp(rumps.App):
 
         self._recording_locked = False
         self._ptt_held = False
-        self._command_held = False
         self._is_recording = False
-        self._is_command_mode = False
         self._paused = False
         self._rms_history: deque[float] = deque([0.0] * 5, maxlen=5)
 
         self._recent: list[str] = []
-        self._chip = detect_chip()
-        self._status_item = rumps.MenuItem("Status: Loading...")
+        whisper_cached = is_model_cached(WHISPER_MODEL)
+        llm_cached = is_model_cached(self._prefs.llm_model.hf_repo)
+        if whisper_cached and llm_cached:
+            init_status = "Status: Loading models..."
+        else:
+            init_status = "Status: Downloading models (first launch)..."
+        self._status_item = rumps.MenuItem(init_status)
         self._build_menu()
 
     # ── UI queue (thread-safe main-thread updates) ─────────────────
@@ -102,6 +102,8 @@ class DictateMenuBarApp(rumps.App):
             elif kind == "notify":
                 text = str(msg[1])[:MAX_NOTIFICATION_LENGTH]
                 rumps.notification("Dictate", "", text)
+            elif kind == "rebuild_menu":
+                self._build_menu()
             elif kind == "recent":
                 self._recent.insert(0, str(msg[1]))
                 self._recent = self._recent[:MAX_RECENT_ITEMS]
@@ -126,20 +128,12 @@ class DictateMenuBarApp(rumps.App):
     def _build_menu(self) -> None:
         self.menu.clear()
         pause_label = "Resume Dictation" if self._paused else "Pause Dictation"
-        stt_idx = max(0, min(self._prefs.stt_preset, len(STT_PRESETS) - 1))
-        q_idx = max(0, min(self._prefs.quality_preset, len(QUALITY_PRESETS) - 1))
-        chip_info = rumps.MenuItem(
-            f"{self._chip}  ·  {STT_PRESETS[stt_idx].engine.value.title()}  ·  {QUALITY_PRESETS[q_idx].llm_model.value}"
-        )
-        chip_info.set_callback(None)
         self.menu = [
-            chip_info,
             self._status_item,
             rumps.MenuItem(pause_label, callback=self._on_pause_toggle),
             None,
             self._build_mic_menu(),
             self._build_ptt_key_menu(),
-            self._build_stt_engine_menu(),
             self._build_quality_menu(),
             self._build_sound_menu(),
             None,
@@ -147,9 +141,6 @@ class DictateMenuBarApp(rumps.App):
             self._build_input_lang_menu(),
             self._build_output_lang_menu(),
             self._build_llm_toggle(),
-            None,
-            self._build_command_key_menu(),
-            rumps.MenuItem("Personal Dictionary...", callback=self._on_open_dictionary),
             None,
             self._build_recent_menu(),
             None,
@@ -180,21 +171,17 @@ class DictateMenuBarApp(rumps.App):
             ptt_menu.add(item)
         return ptt_menu
 
-    def _build_stt_engine_menu(self) -> rumps.MenuItem:
-        stt_menu = rumps.MenuItem("Speech Engine")
-        for i, preset in enumerate(STT_PRESETS):
-            title = f"{preset.label}"
-            if preset.description:
-                title += f" - {preset.description}"
-            item = rumps.MenuItem(title, callback=self._on_stt_select)
-            item.state = i == self._prefs.stt_preset
-            item._stt_index = i  # type: ignore[attr-defined]
-            stt_menu.add(item)
-        return stt_menu
-
     def _build_quality_menu(self) -> rumps.MenuItem:
+        from dictate.config import LLMBackend
         quality_menu = rumps.MenuItem("Quality")
         for i, preset in enumerate(QUALITY_PRESETS):
+            is_api = preset.backend == LLMBackend.API
+            # Hide API Server unless user is actively using it
+            if is_api and self._prefs.quality_preset != i:
+                continue
+            # Only show models that are already downloaded
+            if not is_api and not is_model_cached(preset.llm_model.hf_repo):
+                continue
             item = rumps.MenuItem(preset.label, callback=self._on_quality_select)
             item.state = i == self._prefs.quality_preset
             item._preset_index = i  # type: ignore[attr-defined]
@@ -238,15 +225,6 @@ class DictateMenuBarApp(rumps.App):
             style_menu.add(item)
         return style_menu
 
-    def _build_command_key_menu(self) -> rumps.MenuItem:
-        cmd_menu = rumps.MenuItem("Command Mode Key")
-        for key_id, label in COMMAND_KEYS:
-            item = rumps.MenuItem(label, callback=self._on_command_key_select)
-            item.state = key_id == self._prefs.command_key
-            item._key_id = key_id  # type: ignore[attr-defined]
-            cmd_menu.add(item)
-        return cmd_menu
-
     def _build_login_toggle(self) -> rumps.MenuItem:
         item = rumps.MenuItem("Launch at Login", callback=self._on_login_toggle)
         item.state = self._is_launch_at_login()
@@ -289,7 +267,7 @@ class DictateMenuBarApp(rumps.App):
             self._post_ui("icon", "idle")
             logger.info("Dictation paused")
         else:
-            self._post_ui("status", "Idle")
+            self._post_ui("status", "Ready")
             logger.info("Dictation resumed")
         self._build_menu()
 
@@ -306,16 +284,6 @@ class DictateMenuBarApp(rumps.App):
         self._prefs.save()
         self._apply_prefs()
         self._build_menu()
-
-    def _on_stt_select(self, sender: rumps.MenuItem) -> None:
-        idx = sender._stt_index  # type: ignore[attr-defined]
-        if idx == self._prefs.stt_preset:
-            return
-        self._prefs.stt_preset = idx
-        self._prefs.save()
-        self._apply_prefs()
-        self._build_menu()
-        self._reload_pipeline()
 
     def _on_quality_select(self, sender: rumps.MenuItem) -> None:
         idx = sender._preset_index  # type: ignore[attr-defined]
@@ -359,18 +327,6 @@ class DictateMenuBarApp(rumps.App):
         self._apply_prefs()
         self._build_menu()
 
-    def _on_command_key_select(self, sender: rumps.MenuItem) -> None:
-        key_id = sender._key_id  # type: ignore[attr-defined]
-        self._prefs.command_key = key_id
-        self._prefs.save()
-        self._apply_prefs()
-        self._build_menu()
-
-    def _on_open_dictionary(self, _sender: rumps.MenuItem) -> None:
-        import subprocess
-        dict_path = Preferences.save_default_dictionary()
-        subprocess.Popen(["open", str(dict_path)])
-
     def _on_login_toggle(self, _sender: rumps.MenuItem) -> None:
         enabled = not self._is_launch_at_login()
         self._set_launch_at_login(enabled)
@@ -384,24 +340,35 @@ class DictateMenuBarApp(rumps.App):
         return self._launch_agent_path().exists()
 
     def _set_launch_at_login(self, enabled: bool) -> None:
-        import os
-        import plistlib
         import sys
 
         plist_path = self._launch_agent_path()
         if enabled:
             python = sys.executable
             project_dir = str(Path(__file__).resolve().parent.parent)
-            plist_data = {
-                "Label": "com.dictate.app",
-                "ProgramArguments": [python, "-m", "dictate"],
-                "WorkingDirectory": project_dir,
-                "RunAtLoad": True,
-            }
+            plist_content = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
+                ' "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                '<plist version="1.0">\n'
+                "<dict>\n"
+                "  <key>Label</key>\n"
+                "  <string>com.dictate.app</string>\n"
+                "  <key>ProgramArguments</key>\n"
+                "  <array>\n"
+                f"    <string>{python}</string>\n"
+                "    <string>-m</string>\n"
+                "    <string>dictate</string>\n"
+                "  </array>\n"
+                "  <key>WorkingDirectory</key>\n"
+                f"  <string>{project_dir}</string>\n"
+                "  <key>RunAtLoad</key>\n"
+                "  <true/>\n"
+                "</dict>\n"
+                "</plist>\n"
+            )
             plist_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(plist_path, "wb") as f:
-                plistlib.dump(plist_data, f)
-            os.chmod(plist_path, 0o600)
+            plist_path.write_text(plist_content)
             logger.info("Launch at Login enabled: %s", plist_path)
         else:
             if plist_path.exists():
@@ -430,16 +397,13 @@ class DictateMenuBarApp(rumps.App):
 
     def _apply_prefs(self) -> None:
         self._config.audio.device_id = self._prefs.device_id
-        self._config.whisper.engine = self._prefs.stt_engine
-        self._config.whisper.model = self._prefs.stt_model
         self._config.whisper.language = self._prefs.whisper_language
         self._config.llm.output_language = self._prefs.llm_output_language
         self._config.llm.model_choice = self._prefs.llm_model
         self._config.llm.backend = self._prefs.backend
-        self._config.llm.api_url = self._prefs.validated_api_url
+        self._config.llm.api_url = self._prefs.api_url
         self._config.llm.enabled = self._prefs.llm_cleanup
         self._config.llm.writing_style = self._prefs.writing_style
-        self._config.llm.dictionary = Preferences.load_dictionary() or None
         self._config.keybinds.ptt_key = self._prefs.ptt_pynput_key
         sound = self._prefs.sound
         if sound.start_hz == 0:
@@ -463,8 +427,11 @@ class DictateMenuBarApp(rumps.App):
                     llm_config=self._config.llm,
                 )
                 self._pipeline.set_sample_rate(self._config.audio.sample_rate)
-                self._pipeline.preload_models()
-                self._post_ui("status", "Idle")
+                self._pipeline.preload_models(
+                    on_progress=lambda msg: self._post_ui("status", msg)
+                )
+                self._post_ui("status", "Ready")
+                self._post_ui("rebuild_menu")
             except Exception:
                 logger.exception("Failed to reload pipeline")
                 self._post_ui("status", "Model load failed")
@@ -486,9 +453,12 @@ class DictateMenuBarApp(rumps.App):
                 llm_config=self._config.llm,
             )
             self._pipeline.set_sample_rate(self._config.audio.sample_rate)
-            self._pipeline.preload_models()
+            self._pipeline.preload_models(
+                on_progress=lambda msg: self._post_ui("status", msg)
+            )
             logger.info("Pipeline ready")
-            self._post_ui("status", "Idle")
+            self._post_ui("status", "Ready")
+            self._post_ui("rebuild_menu")
         except Exception:
             logger.exception("Failed to initialize pipeline")
             self._post_ui("status", "Model load failed")
@@ -509,17 +479,8 @@ class DictateMenuBarApp(rumps.App):
         def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
             if self._paused:
                 return
-
-            command_key = self._prefs.command_pynput_key
-            if command_key and key == command_key:
-                self._command_held = True
-                self._is_command_mode = True
-                self._start_recording()
-                return
-
             if key == self._config.keybinds.ptt_key:
                 self._ptt_held = True
-                self._is_command_mode = False
                 if self._recording_locked:
                     self._recording_locked = False
                     time.sleep(KEYBOARD_RELEASE_DELAY_SECONDS)
@@ -538,13 +499,6 @@ class DictateMenuBarApp(rumps.App):
                     logger.info("Recording locked")
 
         def on_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
-            command_key = self._prefs.command_pynput_key
-            if command_key and key == command_key:
-                self._command_held = False
-                time.sleep(KEYBOARD_RELEASE_DELAY_SECONDS)
-                self._stop_recording()
-                return
-
             if key == self._config.keybinds.ptt_key:
                 self._ptt_held = False
                 if not self._recording_locked:
@@ -558,7 +512,10 @@ class DictateMenuBarApp(rumps.App):
     # ── Recording ──────────────────────────────────────────────────
 
     def _start_recording(self) -> None:
-        if self._audio is None or self._audio.is_recording:
+        if self._audio is None:
+            self._post_ui("status", "Still loading models...")
+            return
+        if self._audio.is_recording:
             return
         play_tone(
             self._config.tones,
@@ -583,7 +540,7 @@ class DictateMenuBarApp(rumps.App):
         self._post_ui("icon", "idle")
 
         if duration < self._config.min_hold_to_process_s:
-            self._post_ui("status", "Idle")
+            self._post_ui("status", "Ready")
             return
 
         self._post_ui("status", "Processing...")
@@ -609,86 +566,13 @@ class DictateMenuBarApp(rumps.App):
         if self._pipeline is None:
             return
         try:
-            if self._is_command_mode:
-                self._process_command(audio)
-            else:
-                text = self._pipeline.process(audio)
-                if text:
-                    self._emit_output(text)
+            text = self._pipeline.process(audio)
+            if text:
+                self._emit_output(text)
         except Exception:
             logger.exception("Processing error")
         finally:
-            self._is_command_mode = False
-            self._post_ui("status", "Idle")
-
-    def _process_command(self, audio: NDArray[np.int16]) -> None:
-        import pyperclip
-
-        spoken = self._pipeline._whisper.transcribe(
-            audio, self._pipeline._sample_rate,
-            language=self._config.whisper.language,
-        ).strip()
-        if not spoken:
-            return
-
-        clipboard_text = pyperclip.paste() or ""
-        if not clipboard_text:
-            logger.info("Command mode: clipboard empty, treating as normal dictation")
-            text = self._pipeline._cleaner.cleanup(spoken)
-            if text:
-                self._emit_output(text)
-            return
-
-        logger.info("Command mode: '%s' on %d chars", spoken, len(clipboard_text))
-
-        prompt = self._config.llm.get_command_prompt()
-        user_msg = f"CLIPBOARD:\n{clipboard_text}\n\nCOMMAND: {spoken}"
-
-        from dictate.transcribe import _postprocess
-        if hasattr(self._pipeline._cleaner, '_model') and self._pipeline._cleaner._model is not None:
-            from mlx_lm import generate
-            from mlx_lm.sample_utils import make_sampler
-            messages = [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": user_msg},
-            ]
-            tok_prompt = self._pipeline._cleaner._tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True,
-            )
-            sampler = make_sampler(temp=0.0)
-            result = generate(
-                self._pipeline._cleaner._model,
-                self._pipeline._cleaner._tokenizer,
-                prompt=tok_prompt, max_tokens=self._config.llm.max_tokens * 2,
-                sampler=sampler,
-            )
-            result = _postprocess(result.strip())
-        else:
-            import json
-            import urllib.request
-            payload = json.dumps({
-                "model": "default",
-                "messages": [
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": user_msg},
-                ],
-                "max_tokens": self._config.llm.max_tokens * 2,
-                "temperature": 0.0,
-            }).encode()
-            req = urllib.request.Request(
-                self._config.llm.api_url,
-                data=payload,
-                headers={"Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
-            result = _postprocess(data["choices"][0]["message"]["content"].strip())
-
-        if result:
-            pyperclip.copy(result)
-            self._output.output(result)
-            self._post_ui("notify", f"Command: {spoken}")
-            self._post_ui("recent", result)
+            self._post_ui("status", "Ready")
 
     def _emit_output(self, text: str) -> None:
         self._aggregator.append(text)

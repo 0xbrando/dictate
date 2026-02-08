@@ -395,6 +395,8 @@ def _looks_clean(text: str) -> bool:
 
 # ── Pipeline ─────────────────────────────────────────────────────
 
+SMART_ROUTING_THRESHOLD = 15  # words — short messages use fast local model
+
 
 DEDUP_WINDOW_SECONDS = 15.0
 
@@ -415,10 +417,36 @@ class TranscriptionPipeline:
             self._cleaner: TextCleaner | APITextCleaner = APITextCleaner(llm_config)
         else:
             self._cleaner = TextCleaner(llm_config)
+        self._fast_cleaner: TextCleaner | None = self._create_fast_cleaner(llm_config)
         self._llm_config = llm_config
         self._sample_rate = 16_000
         self._last_output: str = ""
         self._last_output_time: float = 0.0
+
+    @staticmethod
+    def _create_fast_cleaner(llm_config: "LLMConfig") -> "TextCleaner | None":
+        """Create a fast local cleaner for smart routing (API mode only)."""
+        from dictate.config import LLMBackend, LLMConfig, LLMModel, is_model_cached
+
+        if llm_config.backend != LLMBackend.API:
+            return None
+
+        # Pick the fastest cached local model
+        for model in [LLMModel.QWEN_1_5B, LLMModel.QWEN, LLMModel.QWEN_7B]:
+            if is_model_cached(model.hf_repo):
+                fast_config = LLMConfig(
+                    enabled=llm_config.enabled,
+                    model_choice=model,
+                    max_tokens=llm_config.max_tokens,
+                    temperature=llm_config.temperature,
+                    output_language=llm_config.output_language,
+                    writing_style=llm_config.writing_style,
+                    dictionary=llm_config.dictionary,
+                )
+                logger.info("Smart routing: %s for short, API for long", model.value)
+                return TextCleaner(fast_config)
+
+        return None
 
     def set_sample_rate(self, sample_rate: int) -> None:
         self._sample_rate = sample_rate
@@ -438,9 +466,36 @@ class TranscriptionPipeline:
         self._last_output_time = now
         return False
 
-    def preload_models(self) -> None:
+    def preload_models(self, on_progress=None) -> None:
+        from dictate.config import is_model_cached
+        whisper_cached = is_model_cached(self._whisper._config.model)
+        if on_progress:
+            if whisper_cached:
+                on_progress("Loading Whisper...")
+            else:
+                on_progress("Downloading Whisper (~2GB)...")
         self._whisper.load_model()
+        if self._fast_cleaner:
+            if on_progress:
+                on_progress("Loading fast local model...")
+            self._fast_cleaner.load_model()
+        llm_model = getattr(self._cleaner, "_config", None)
+        llm_repo = llm_model.model if llm_model else ""
+        llm_cached = is_model_cached(llm_repo) if llm_repo else True
+        if on_progress:
+            if isinstance(self._cleaner, APITextCleaner):
+                on_progress("Connecting to API server...")
+            elif llm_cached:
+                on_progress("Loading LLM...")
+            else:
+                on_progress("Downloading LLM model (~2GB)...")
         self._cleaner.load_model()
+
+    def _pick_cleaner(self, word_count: int) -> "TextCleaner | APITextCleaner":
+        """Route short messages to the fast local model, long ones to API."""
+        if self._fast_cleaner and word_count <= SMART_ROUTING_THRESHOLD:
+            return self._fast_cleaner
+        return self._cleaner
 
     def process(
         self,
@@ -463,7 +518,8 @@ class TranscriptionPipeline:
             logger.info("No speech detected")
             return None
 
-        logger.info("Transcribed in %.1fs (%d words)", t1 - t0, len(raw_text.split()))
+        word_count = len(raw_text.split())
+        logger.info("Transcribed in %.1fs (%d words)", t1 - t0, word_count)
         logger.debug("Transcription text: %s", raw_text)
 
         # Smart skip: if LLM is enabled but text already looks clean,
@@ -479,13 +535,16 @@ class TranscriptionPipeline:
             and self._llm_config.writing_style == "clean"
             and _looks_clean(raw_text)
         ):
-            logger.info("Skipped LLM (clean transcription, %d words)", len(raw_text.split()))
+            logger.info("Skipped LLM (clean transcription, %d words)", word_count)
             if self._is_duplicate(raw_text):
                 return None
             return raw_text
 
+        cleaner = self._pick_cleaner(word_count)
+        route = "local" if cleaner is self._fast_cleaner else "API"
+
         t2 = time.time()
-        cleaned_text = self._cleaner.cleanup(raw_text, output_language=output_language).strip()
+        cleaned_text = cleaner.cleanup(raw_text, output_language=output_language).strip()
         t3 = time.time()
 
         if not cleaned_text:
@@ -493,10 +552,10 @@ class TranscriptionPipeline:
             return None
 
         if cleaned_text != raw_text:
-            logger.info("Cleaned in %.0fms (%d words)", (t3 - t2) * 1000, len(cleaned_text.split()))
+            logger.info("Cleaned via %s in %.0fms (%d words)", route, (t3 - t2) * 1000, len(cleaned_text.split()))
             logger.debug("Cleaned text: %s", cleaned_text)
         else:
-            logger.info("No changes needed (%.0fms)", (t3 - t2) * 1000)
+            logger.info("No changes needed via %s (%.0fms)", route, (t3 - t2) * 1000)
 
         if self._is_duplicate(cleaned_text):
             return None

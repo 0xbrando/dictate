@@ -20,6 +20,26 @@ try:
 except ImportError:
     pass
 
+LOCK_FILE = Path.home() / "Library" / "Application Support" / "Dictate" / "dictate.lock"
+
+
+def _acquire_singleton_lock() -> int | None:
+    """Acquire an exclusive lock to prevent duplicate instances.
+
+    Returns the lock fd on success, or None if another instance is running.
+    The fd must be kept open for the lifetime of the process.
+    """
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        os.write(fd, f"{os.getpid()}\n".encode())
+        os.ftruncate(fd, os.lseek(fd, 0, os.SEEK_CUR))
+        return fd
+    except OSError:
+        os.close(fd)
+        return None
+
 
 def setup_logging() -> None:
     logging.basicConfig(
@@ -31,30 +51,11 @@ def setup_logging() -> None:
         logging.getLogger(name).setLevel(logging.ERROR)
 
 
-LOCK_FILE = Path.home() / "Library" / "Application Support" / "Dictate" / ".lock"
-
-
-def _acquire_singleton() -> "int | None":
-    """Acquire a file lock to ensure only one instance runs.
-
-    Returns the lock file descriptor on success, or None if another
-    instance is already running.
-    """
-    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_WRONLY, 0o600)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd
-    except OSError:
-        os.close(fd)
-        return None
-
-
 def main() -> int:
     setup_logging()
     logger = logging.getLogger(__name__)
 
-    lock_fd = _acquire_singleton()
+    lock_fd = _acquire_singleton_lock()
     if lock_fd is None:
         logger.error("Another instance of Dictate is already running. Exiting.")
         print("Dictate is already running.", file=sys.stderr)

@@ -35,6 +35,27 @@ class LLMModel(str, Enum):
     QWEN_7B = "qwen-7b"
     QWEN_14B = "qwen-14b"
 
+    @property
+    def hf_repo(self) -> str:
+        repos = {
+            LLMModel.QWEN_1_5B: "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
+            LLMModel.PHI3: "mlx-community/Phi-3-mini-4k-instruct-4bit",
+            LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
+            LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
+            LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
+        }
+        return repos.get(self, repos[LLMModel.QWEN])
+
+
+WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
+
+
+def is_model_cached(hf_repo: str) -> bool:
+    from pathlib import Path
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    model_dir = cache_dir / f"models--{hf_repo.replace('/', '--')}" / "snapshots"
+    return model_dir.is_dir() and any(model_dir.iterdir())
+
 
 @dataclass
 class AudioConfig:
