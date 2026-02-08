@@ -95,7 +95,7 @@ QUALITY_PRESETS: list[QualityPreset] = [
     QualityPreset(
         label="Speedy - 1.5B (~120ms, 1GB)",
         llm_model=LLMModel.QWEN_1_5B,
-        description="Fast cleanup, great for M1/M2/M3",
+        description="Fast cleanup, great for any M chip",
     ),
     QualityPreset(
         label="Fast - 3B (~250ms, 2GB)",

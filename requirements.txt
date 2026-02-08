@@ -16,5 +16,5 @@ rumps>=0.4.0
 # Configuration
 python-dotenv>=1.0.0
 
-# Optional: faster STT engine (4-8x faster than Whisper on M1/M2)
+# Optional: faster STT engine (4-8x faster than Whisper)
 # parakeet-mlx>=0.1.0
