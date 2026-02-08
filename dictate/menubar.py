@@ -24,6 +24,7 @@ from dictate.presets import (
     PTT_KEYS,
     QUALITY_PRESETS,
     SOUND_PRESETS,
+    STT_PRESETS,
     WRITING_STYLES,
     Preferences,
 )
@@ -135,12 +136,14 @@ class DictateMenuBarApp(rumps.App):
             self._build_mic_menu(),
             self._build_ptt_key_menu(),
             self._build_quality_menu(),
+            self._build_stt_menu(),
             self._build_sound_menu(),
             None,
             self._build_writing_style_menu(),
             self._build_input_lang_menu(),
             self._build_output_lang_menu(),
             self._build_llm_toggle(),
+            self._build_dictionary_menu(),
             None,
             self._build_recent_menu(),
             None,
@@ -234,6 +237,45 @@ class DictateMenuBarApp(rumps.App):
         item = rumps.MenuItem("LLM Cleanup", callback=self._on_llm_toggle)
         item.state = self._prefs.llm_cleanup
         return item
+
+    def _build_stt_menu(self) -> rumps.MenuItem:
+        from dictate.config import STTEngine
+
+        stt_menu = rumps.MenuItem("STT Engine")
+        for i, preset in enumerate(STT_PRESETS):
+            # Only show Parakeet if the package is installed
+            if preset.engine == STTEngine.PARAKEET:
+                try:
+                    import parakeet_mlx  # noqa: F401
+                except ImportError:
+                    continue
+            desc = f" — {preset.description}" if preset.description else ""
+            item = rumps.MenuItem(f"{preset.label}{desc}", callback=self._on_stt_select)
+            item.state = i == self._prefs.stt_preset
+            item._stt_index = i  # type: ignore[attr-defined]
+            stt_menu.add(item)
+        return stt_menu
+
+    def _build_dictionary_menu(self) -> rumps.MenuItem:
+        dict_menu = rumps.MenuItem("Personal Dictionary")
+        words = Preferences.load_dictionary()
+        dict_menu.add(rumps.MenuItem("Add Word…", callback=self._on_dict_add))
+        if words:
+            dict_menu.add(None)  # separator
+            for word in words:
+                item = rumps.MenuItem(f"✕  {word}", callback=self._on_dict_remove)
+                item._dict_word = word  # type: ignore[attr-defined]
+                dict_menu.add(item)
+            dict_menu.add(None)
+            dict_menu.add(
+                rumps.MenuItem("Clear All", callback=self._on_dict_clear)
+            )
+        else:
+            dict_menu.add(None)
+            no_words = rumps.MenuItem("No words yet")
+            no_words.set_callback(None)
+            dict_menu.add(no_words)
+        return dict_menu
 
     def _build_recent_menu(self) -> rumps.MenuItem:
         recent_menu = rumps.MenuItem("Recent")
@@ -381,6 +423,51 @@ class DictateMenuBarApp(rumps.App):
         self._prefs.save()
         self._apply_prefs()
 
+    def _on_stt_select(self, sender: rumps.MenuItem) -> None:
+        idx = sender._stt_index  # type: ignore[attr-defined]
+        if idx == self._prefs.stt_preset:
+            return
+        self._prefs.stt_preset = idx
+        self._prefs.save()
+        self._apply_prefs()
+        self._build_menu()
+        self._reload_pipeline()
+
+    def _on_dict_add(self, _sender: rumps.MenuItem) -> None:
+        window = rumps.Window(
+            message="Enter a word or phrase to always spell correctly:",
+            title="Add to Personal Dictionary",
+            default_text="",
+            ok="Add",
+            cancel="Cancel",
+        )
+        response = window.run()
+        if response.clicked and response.text.strip():
+            words = Preferences.load_dictionary()
+            new_word = response.text.strip()
+            if new_word not in words:
+                words.append(new_word)
+                Preferences.save_dictionary(words)
+                self._config.llm.dictionary = words
+                self._build_menu()
+                logger.info("Added '%s' to dictionary", new_word)
+
+    def _on_dict_remove(self, sender: rumps.MenuItem) -> None:
+        word = sender._dict_word  # type: ignore[attr-defined]
+        words = Preferences.load_dictionary()
+        if word in words:
+            words.remove(word)
+            Preferences.save_dictionary(words)
+            self._config.llm.dictionary = words or None
+            self._build_menu()
+            logger.info("Removed '%s' from dictionary", word)
+
+    def _on_dict_clear(self, _sender: rumps.MenuItem) -> None:
+        Preferences.save_dictionary([])
+        self._config.llm.dictionary = None
+        self._build_menu()
+        logger.info("Cleared personal dictionary")
+
     def _on_recent_select(self, sender: rumps.MenuItem) -> None:
         text = sender._full_text  # type: ignore[attr-defined]
         self._output.output(text)
@@ -398,12 +485,15 @@ class DictateMenuBarApp(rumps.App):
     def _apply_prefs(self) -> None:
         self._config.audio.device_id = self._prefs.device_id
         self._config.whisper.language = self._prefs.whisper_language
+        self._config.whisper.engine = self._prefs.stt_engine
+        self._config.whisper.model = self._prefs.stt_model
         self._config.llm.output_language = self._prefs.llm_output_language
         self._config.llm.model_choice = self._prefs.llm_model
         self._config.llm.backend = self._prefs.backend
-        self._config.llm.api_url = self._prefs.api_url
+        self._config.llm.api_url = self._prefs.validated_api_url
         self._config.llm.enabled = self._prefs.llm_cleanup
         self._config.llm.writing_style = self._prefs.writing_style
+        self._config.llm.dictionary = Preferences.load_dictionary() or None
         self._config.keybinds.ptt_key = self._prefs.ptt_pynput_key
         sound = self._prefs.sound
         if sound.start_hz == 0:
