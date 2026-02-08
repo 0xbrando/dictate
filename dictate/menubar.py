@@ -42,6 +42,7 @@ MAX_NOTIFICATION_LENGTH = 120
 MAX_RECENT_ITEMS = 10
 RECENT_MENU_TRUNCATE = 50
 UI_POLL_INTERVAL_SECONDS = 0.1
+DEVICE_POLL_INTERVAL_SECONDS = 3.0
 
 # Reactive waveform: maps RMS to bar heights
 BAR_WEIGHTS = [0.65, 0.85, 1.0, 0.80, 0.60]
@@ -79,7 +80,8 @@ class DictateMenuBarApp(rumps.App):
         self._recent: list[str] = []
         self._active_downloads: dict[str, threading.Thread] = {}
         self._download_progress: dict[str, float] = {}
-        
+        self._last_device_check: float = 0.0
+        self._known_device_ids: set[int] = {d.index for d in list_input_devices()}
         whisper_cached = is_model_cached(WHISPER_MODEL)
         llm_cached = is_model_cached(self._prefs.llm_model.hf_repo)
         if whisper_cached and llm_cached:
@@ -114,6 +116,12 @@ class DictateMenuBarApp(rumps.App):
                 self._recent = self._recent[:MAX_RECENT_ITEMS]
                 self._build_menu()
 
+        # Detect audio device hot-plug/unplug
+        now = time.time()
+        if now - self._last_device_check >= DEVICE_POLL_INTERVAL_SECONDS:
+            self._last_device_check = now
+            self._check_device_changes()
+
         # Reactive waveform: bars follow actual voice level
         if self._is_recording and self._audio:
             rms = self._audio.current_rms
@@ -127,6 +135,28 @@ class DictateMenuBarApp(rumps.App):
 
     def _post_ui(self, *msg: str) -> None:
         self._ui_queue.put(msg)
+
+    def _check_device_changes(self) -> None:
+        """Detect audio device hot-plug/unplug and rebuild menu."""
+        current_ids = {d.index for d in list_input_devices()}
+        if current_ids == self._known_device_ids:
+            return
+        added = current_ids - self._known_device_ids
+        removed = self._known_device_ids - current_ids
+        self._known_device_ids = current_ids
+        if added:
+            logger.info("Audio device(s) connected: %s", added)
+        if removed:
+            logger.info("Audio device(s) disconnected: %s", removed)
+        self._build_menu()
+        # Create AudioCapture if it doesn't exist yet and devices are now available
+        if self._audio is None and current_ids and self._pipeline is not None:
+            logger.info("Creating AudioCapture after device hot-plug")
+            self._audio = AudioCapture(
+                audio_config=self._config.audio,
+                vad_config=self._config.vad,
+                on_chunk_ready=self._on_chunk_ready,
+            )
 
     # ── Menu construction ──────────────────────────────────────────
 
@@ -731,11 +761,14 @@ class DictateMenuBarApp(rumps.App):
             logger.exception("Failed to initialize pipeline")
             self._post_ui("status", "Model load failed")
 
-        self._audio = AudioCapture(
-            audio_config=self._config.audio,
-            vad_config=self._config.vad,
-            on_chunk_ready=self._on_chunk_ready,
-        )
+        if list_input_devices():
+            self._audio = AudioCapture(
+                audio_config=self._config.audio,
+                vad_config=self._config.vad,
+                on_chunk_ready=self._on_chunk_ready,
+            )
+        else:
+            logger.warning("No input devices found — waiting for hot-plug")
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
@@ -781,16 +814,21 @@ class DictateMenuBarApp(rumps.App):
 
     def _start_recording(self) -> None:
         if self._audio is None:
-            self._post_ui("status", "Still loading models...")
+            self._post_ui("status", "No microphone detected")
             return
         if self._audio.is_recording:
             return
-        play_tone(
-            self._config.tones,
-            self._config.tones.start_hz,
-            self._config.audio.sample_rate,
-        )
-        self._audio.start()
+        try:
+            play_tone(
+                self._config.tones,
+                self._config.tones.start_hz,
+                self._config.audio.sample_rate,
+            )
+            self._audio.start()
+        except Exception:
+            logger.exception("Failed to start recording")
+            self._post_ui("status", "Mic error — check connection")
+            return
         self._is_recording = True
         self._rms_history = deque([0.0] * 5, maxlen=5)
         self._post_ui("status", "Recording (Space to lock)")
