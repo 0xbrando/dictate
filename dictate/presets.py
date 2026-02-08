@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from dictate.config import LLMBackend, LLMModel, STTEngine
+from dictate.llm_discovery import discover_llm, get_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +34,13 @@ def detect_chip() -> str:
 def recommended_quality_preset() -> int:
     """Return the best quality preset index for this hardware.
 
-    Presets: [0]=API, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B
+    Presets: [0]=API/Endpoint, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B
     """
     chip = detect_chip().lower()
     if "ultra" in chip or "max" in chip:
         return 2  # Fast - 3B (plenty fast on Ultra/Max)
     return 1  # Speedy - 1.5B (good default for all chips)
+
 
 PREFS_DIR = Path.home() / "Library" / "Application Support" / "Dictate"
 PREFS_FILE = PREFS_DIR / "preferences.json"
@@ -87,10 +89,10 @@ class QualityPreset:
 
 QUALITY_PRESETS: list[QualityPreset] = [
     QualityPreset(
-        label="Smart (~250ms, 0 RAM)",
+        label="API Server",
         llm_model=LLMModel.QWEN,
         backend=LLMBackend.API,
-        description="Fast local for short, API server for long",
+        description="Use external API server (LM Studio, Ollama, etc.)",
     ),
     QualityPreset(
         label="Speedy - 1.5B (~120ms, 1GB)",
@@ -195,13 +197,18 @@ class Preferences:
     ptt_key: str = "ctrl_l"  # key into PTT_KEYS
     command_key: str = "none"  # key into COMMAND_KEYS
     api_url: str = "http://localhost:8005/v1/chat/completions"
+    llm_endpoint: str = "localhost:11434"  # LLM endpoint for API backend
     advanced_mode: bool = False
+    # Cached discovered model name (not saved, refreshed on launch)
+    _discovered_model: str | None = field(default=None, repr=False)
 
     def save(self) -> None:
         PREFS_DIR.mkdir(parents=True, exist_ok=True)
         os.chmod(PREFS_DIR, 0o700)
         data = asdict(self)
-        data["_prefs_version"] = 3
+        # Remove cached discovery
+        data.pop("_discovered_model", None)
+        data["_prefs_version"] = 4  # v4 adds llm_endpoint
         try:
             PREFS_FILE.write_text(json.dumps(data, indent=2))
             os.chmod(PREFS_FILE, 0o600)
@@ -216,6 +223,7 @@ class Preferences:
             preset = recommended_quality_preset()
             logger.info("First launch on %s — auto-selected quality preset %d", chip, preset)
             prefs = cls(quality_preset=preset)
+            prefs._refresh_discovery()  # Discover model at startup
             prefs.save()
             return prefs
         try:
@@ -224,6 +232,7 @@ class Preferences:
             # v1: [0]=API, [1]=3B, [2]=7B, [3]=14B
             # v2: [0]=API, [1]=0.5B, [2]=1.5B, [3]=3B, [4]=7B, [5]=14B
             # v3: [0]=API, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B  (0.5B removed)
+            # v4: same as v3 but adds llm_endpoint field
             raw_preset = data.get("quality_preset", 1)
             version = data.get("_prefs_version", 1)
             if version == 1 and raw_preset >= 1:
@@ -233,7 +242,7 @@ class Preferences:
                     raw_preset = max(0, raw_preset)  # API stays 0, 0.5B→1.5B(1)
                 elif raw_preset >= 2:
                     raw_preset -= 1  # 2→1, 3→2, 4→3, 5→4
-            return cls(
+            prefs = cls(
                 device_id=data.get("device_id"),
                 quality_preset=raw_preset,
                 stt_preset=data.get("stt_preset", 0),
@@ -245,11 +254,32 @@ class Preferences:
                 ptt_key=data.get("ptt_key", "ctrl_l"),
                 command_key=data.get("command_key", "none"),
                 api_url=data.get("api_url", "http://localhost:8005/v1/chat/completions"),
+                llm_endpoint=data.get("llm_endpoint", "localhost:11434"),
                 advanced_mode=data.get("advanced_mode", False),
             )
+            prefs._refresh_discovery()  # Discover model at startup
+            return prefs
         except (json.JSONDecodeError, OSError):
             logger.exception("Failed to load preferences, using defaults")
-            return cls()
+            prefs = cls()
+            prefs._refresh_discovery()
+            return prefs
+
+    def _refresh_discovery(self) -> None:
+        """Refresh the discovered model name from the endpoint."""
+        if self.backend == LLMBackend.API:
+            result = discover_llm(self.llm_endpoint)
+            if result.is_available:
+                self._discovered_model = result.name
+            else:
+                self._discovered_model = None
+        else:
+            self._discovered_model = None
+
+    def update_endpoint(self, new_endpoint: str) -> None:
+        """Update the LLM endpoint and refresh discovery."""
+        self.llm_endpoint = new_endpoint
+        self._refresh_discovery()
 
     @property
     def llm_model(self) -> LLMModel:
@@ -260,6 +290,22 @@ class Preferences:
     def backend(self) -> LLMBackend:
         idx = max(0, min(self.quality_preset, len(QUALITY_PRESETS) - 1))
         return QUALITY_PRESETS[idx].backend
+
+    @property
+    def is_api_backend(self) -> bool:
+        """Check if using API backend (either old API or new endpoint-based)."""
+        return self.backend == LLMBackend.API
+
+    @property
+    def discovered_model_display(self) -> str:
+        """Get the display name for the discovered model.
+
+        Returns something like "qwen3-coder:30b via localhost:11434" or
+        "No local model found".
+        """
+        if self.backend != LLMBackend.API:
+            return ""
+        return get_display_name(self.llm_endpoint)
 
     @property
     def stt_engine(self) -> STTEngine:
@@ -298,6 +344,23 @@ class Preferences:
 
     @property
     def validated_api_url(self) -> str:
+        """Get the API URL to use.
+
+        For API backend, uses the endpoint. For local, uses the legacy api_url.
+        """
+        if self.backend == LLMBackend.API:
+            # Use endpoint-based URL
+            endpoint = self.llm_endpoint.strip()
+            # Remove protocol prefix if present
+            if endpoint.startswith("http://"):
+                endpoint = endpoint[7:]
+            elif endpoint.startswith("https://"):
+                endpoint = endpoint[8:]
+            # Remove trailing slash and path
+            endpoint = endpoint.split("/")[0]
+            return f"http://{endpoint}/v1/chat/completions"
+
+        # Legacy local backend uses the stored api_url
         if self._is_safe_api_url(self.api_url):
             return self.api_url
         if os.environ.get("DICTATE_ALLOW_REMOTE_API") == "1":

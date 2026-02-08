@@ -136,6 +136,7 @@ class DictateMenuBarApp(rumps.App):
             self._build_mic_menu(),
             self._build_ptt_key_menu(),
             self._build_quality_menu(),
+            self._build_endpoint_menu(),
             self._build_stt_menu(),
             self._build_sound_menu(),
             None,
@@ -179,17 +180,61 @@ class DictateMenuBarApp(rumps.App):
         quality_menu = rumps.MenuItem("Quality")
         for i, preset in enumerate(QUALITY_PRESETS):
             is_api = preset.backend == LLMBackend.API
-            # Hide API Server unless user is actively using it
-            if is_api and self._prefs.quality_preset != i:
-                continue
-            # Only show models that are already downloaded
-            if not is_api and not is_model_cached(preset.llm_model.hf_repo):
-                continue
-            item = rumps.MenuItem(preset.label, callback=self._on_quality_select)
+            # For API backend, show the discovered model name
+            if is_api:
+                display_label = self._get_api_preset_label()
+            else:
+                # Only show models that are already downloaded
+                if not is_model_cached(preset.llm_model.hf_repo):
+                    continue
+                display_label = preset.label
+            item = rumps.MenuItem(display_label, callback=self._on_quality_select)
             item.state = i == self._prefs.quality_preset
             item._preset_index = i  # type: ignore[attr-defined]
             quality_menu.add(item)
         return quality_menu
+
+    def _get_api_preset_label(self) -> str:
+        """Get the label for the API preset showing discovered model."""
+        display = self._prefs.discovered_model_display
+        if display and "No local model" not in display:
+            # Show discovered model name
+            return f"API: {display}"
+        return "API Server (configure endpoint)"
+
+    def _build_endpoint_menu(self) -> rumps.MenuItem:
+        """Build menu for LLM endpoint configuration."""
+        endpoint_menu = rumps.MenuItem("LLM Endpoint")
+
+        # Show current endpoint
+        current = rumps.MenuItem(f"Current: {self._prefs.llm_endpoint}")
+        current.set_callback(None)
+        endpoint_menu.add(current)
+
+        # Show discovered model status
+        display = self._prefs.discovered_model_display
+        if display:
+            status = rumps.MenuItem(f"Model: {display}")
+            status.set_callback(None)
+            endpoint_menu.add(status)
+
+        endpoint_menu.add(None)  # separator
+
+        # Preset endpoints
+        presets = [
+            ("Ollama (11434)", "localhost:11434"),
+            ("LM Studio (1234)", "localhost:1234"),
+            ("vLLM (8000)", "localhost:8000"),
+        ]
+        for label, endpoint in presets:
+            item = rumps.MenuItem(label, callback=self._on_endpoint_preset_select)
+            item.state = self._prefs.llm_endpoint == endpoint
+            item._endpoint = endpoint  # type: ignore[attr-defined]
+            endpoint_menu.add(item)
+
+        endpoint_menu.add(None)  # separator
+        endpoint_menu.add(rumps.MenuItem("Set Custom...", callback=self._on_endpoint_custom))
+        return endpoint_menu
 
     def _build_input_lang_menu(self) -> rumps.MenuItem:
         lang_menu = rumps.MenuItem("Input Language")
@@ -336,6 +381,44 @@ class DictateMenuBarApp(rumps.App):
         self._apply_prefs()
         self._build_menu()
         self._reload_pipeline()
+
+    def _on_endpoint_preset_select(self, sender: rumps.MenuItem) -> None:
+        """Handle selection of a preset endpoint."""
+        endpoint = sender._endpoint  # type: ignore[attr-defined]
+        if endpoint == self._prefs.llm_endpoint:
+            return
+        self._prefs.update_endpoint(endpoint)
+        self._prefs.save()
+        self._apply_prefs()
+        self._build_menu()
+        self._reload_pipeline()
+
+    def _on_endpoint_custom(self, _sender: rumps.MenuItem) -> None:
+        """Handle custom endpoint input."""
+        window = rumps.Window(
+            message="Enter LLM endpoint (host:port):",
+            title="LLM Endpoint",
+            default_text=self._prefs.llm_endpoint,
+            ok="Set",
+            cancel="Cancel",
+        )
+        response = window.run()
+        if response.clicked and response.text.strip():
+            new_endpoint = response.text.strip()
+            # Remove protocol prefix if user included it
+            if new_endpoint.startswith("http://"):
+                new_endpoint = new_endpoint[7:]
+            elif new_endpoint.startswith("https://"):
+                new_endpoint = new_endpoint[8:]
+            # Remove path if included
+            new_endpoint = new_endpoint.split("/")[0]
+            if new_endpoint and new_endpoint != self._prefs.llm_endpoint:
+                self._prefs.update_endpoint(new_endpoint)
+                self._prefs.save()
+                self._apply_prefs()
+                self._build_menu()
+                self._reload_pipeline()
+                logger.info("Updated LLM endpoint to: %s", new_endpoint)
 
     def _on_input_lang_select(self, sender: rumps.MenuItem) -> None:
         code = sender._lang_code  # type: ignore[attr-defined]

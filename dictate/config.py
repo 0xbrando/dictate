@@ -117,11 +117,25 @@ class LLMConfig:
     backend: LLMBackend = LLMBackend.LOCAL
     model_choice: LLMModel = LLMModel.QWEN
     api_url: str = "http://localhost:8005/v1/chat/completions"
+    endpoint: str = "localhost:11434"  # LLM endpoint for local API servers
     max_tokens: int = 300
     temperature: float = 0.0
     output_language: str | None = None
     writing_style: str = "clean"
     dictionary: list[str] | None = None
+
+    @property
+    def endpoint_api_url(self) -> str:
+        """Get the OpenAI-compatible API URL from the endpoint."""
+        endpoint = self.endpoint.strip()
+        # Remove protocol prefix if present
+        if endpoint.startswith("http://"):
+            endpoint = endpoint[7:]
+        elif endpoint.startswith("https://"):
+            endpoint = endpoint[8:]
+        # Remove trailing slash and path
+        endpoint = endpoint.split("/")[0]
+        return f"http://{endpoint}/v1/chat/completions"
 
     @property
     def model(self) -> str:
