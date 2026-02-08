@@ -29,7 +29,6 @@ class LLMBackend(str, Enum):
 
 
 class LLMModel(str, Enum):
-    QWEN_0_5B = "qwen-0.5b"
     QWEN_1_5B = "qwen-1.5b"
     PHI3 = "phi3"
     QWEN = "qwen"
@@ -106,7 +105,6 @@ class LLMConfig:
     @property
     def model(self) -> str:
         models = {
-            LLMModel.QWEN_0_5B: "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
             LLMModel.QWEN_1_5B: "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
             LLMModel.PHI3: "mlx-community/Phi-3-mini-4k-instruct-4bit",
             LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",

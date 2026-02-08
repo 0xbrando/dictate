@@ -31,15 +31,18 @@ def detect_chip() -> str:
 
 
 def recommended_quality_preset() -> int:
-    """Return the best quality preset index for this hardware."""
+    """Return the best quality preset index for this hardware.
+
+    Presets: [0]=API, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B
+    """
     chip = detect_chip().lower()
     if "ultra" in chip or "max" in chip:
-        return 3  # Fast - 3B (plenty fast on Ultra/Max)
+        return 2  # Fast - 3B (plenty fast on Ultra/Max)
     if any(x in chip for x in ("m3", "m4", "m5")):
-        return 2  # Speedy - 1.5B (good balance for M3+)
+        return 1  # Speedy - 1.5B (good balance for M3+)
     if any(x in chip for x in ("m1", "m2")):
-        return 1  # Instant - 0.5B (fastest for M1/M2)
-    return 2  # default to Speedy
+        return 1  # Speedy - 1.5B (smallest that still works well)
+    return 1  # default to Speedy
 
 PREFS_DIR = Path.home() / "Library" / "Application Support" / "Dictate"
 PREFS_FILE = PREFS_DIR / "preferences.json"
@@ -92,11 +95,6 @@ QUALITY_PRESETS: list[QualityPreset] = [
         llm_model=LLMModel.QWEN,
         backend=LLMBackend.API,
         description="Uses local LLM server, instant startup",
-    ),
-    QualityPreset(
-        label="Instant - 0.5B (~80ms, 0.5GB)",
-        llm_model=LLMModel.QWEN_0_5B,
-        description="Minimal cleanup, best for M1/M2",
     ),
     QualityPreset(
         label="Speedy - 1.5B (~120ms, 1GB)",
@@ -191,7 +189,7 @@ WRITING_STYLES: list[tuple[str, str, str]] = [
 @dataclass
 class Preferences:
     device_id: int | None = None
-    quality_preset: int = 2  # index into QUALITY_PRESETS (default: Speedy 1.5B)
+    quality_preset: int = 1  # index into QUALITY_PRESETS (default: Speedy 1.5B)
     stt_preset: int = 0  # index into STT_PRESETS (default: Whisper)
     input_language: str = "auto"
     output_language: str = "auto"
@@ -206,7 +204,7 @@ class Preferences:
         PREFS_DIR.mkdir(parents=True, exist_ok=True)
         os.chmod(PREFS_DIR, 0o700)
         data = asdict(self)
-        data["_prefs_version"] = 2
+        data["_prefs_version"] = 3
         try:
             PREFS_FILE.write_text(json.dumps(data, indent=2))
             os.chmod(PREFS_FILE, 0o600)
@@ -225,12 +223,20 @@ class Preferences:
             return prefs
         try:
             data = json.loads(PREFS_FILE.read_text())
-            # Migrate: v1 had 4 presets (0=API,1=3B,2=7B,3=14B)
-            # v2 has 6 presets (0=API,1=0.5B,2=1.5B,3=3B,4=7B,5=14B)
-            raw_preset = data.get("quality_preset", 2)
+            # Migrate preset indexes across versions:
+            # v1: [0]=API, [1]=3B, [2]=7B, [3]=14B
+            # v2: [0]=API, [1]=0.5B, [2]=1.5B, [3]=3B, [4]=7B, [5]=14B
+            # v3: [0]=API, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B  (0.5B removed)
+            raw_preset = data.get("quality_preset", 1)
             version = data.get("_prefs_version", 1)
-            if version < 2 and raw_preset >= 1:
-                raw_preset += 2  # shift old 1→3, 2→4, 3→5
+            if version == 1 and raw_preset >= 1:
+                raw_preset += 1  # v1 1→2, 2→3, 3→4
+            elif version == 2:
+                # v2→v3: 0.5B (idx 1) removed, shift down
+                if raw_preset <= 1:
+                    raw_preset = max(0, raw_preset)  # API stays 0, 0.5B→1.5B(1)
+                elif raw_preset >= 2:
+                    raw_preset -= 1  # 2→1, 3→2, 4→3, 5→4
             return cls(
                 device_id=data.get("device_id"),
                 quality_preset=raw_preset,
