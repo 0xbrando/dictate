@@ -129,6 +129,16 @@ class DictateMenuBarApp(rumps.App):
     def _build_menu(self) -> None:
         self.menu.clear()
         pause_label = "Resume Dictation" if self._paused else "Pause Dictation"
+
+        # Build Advanced submenu for power-user features
+        advanced_menu = rumps.MenuItem("Advanced")
+        advanced_menu.add(self._build_endpoint_menu())
+        advanced_menu.add(self._build_stt_menu())
+        advanced_menu.add(self._build_input_lang_menu())
+        advanced_menu.add(self._build_output_lang_menu())
+        advanced_menu.add(self._build_llm_toggle())
+        advanced_menu.add(self._build_dictionary_menu())
+
         self.menu = [
             self._status_item,
             rumps.MenuItem(pause_label, callback=self._on_pause_toggle),
@@ -136,17 +146,12 @@ class DictateMenuBarApp(rumps.App):
             self._build_mic_menu(),
             self._build_ptt_key_menu(),
             self._build_quality_menu(),
-            self._build_endpoint_menu(),
-            self._build_stt_menu(),
+            self._build_writing_style_menu(),
             self._build_sound_menu(),
             None,
-            self._build_writing_style_menu(),
-            self._build_input_lang_menu(),
-            self._build_output_lang_menu(),
-            self._build_llm_toggle(),
-            self._build_dictionary_menu(),
-            None,
             self._build_recent_menu(),
+            None,
+            advanced_menu,
             None,
             self._build_login_toggle(),
             rumps.MenuItem("Quit Dictate", callback=self._on_quit, key="q"),
