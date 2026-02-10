@@ -514,6 +514,12 @@ class DictateMenuBarApp(rumps.App):
                 new_endpoint = new_endpoint[8:]
             # Remove path if included
             new_endpoint = new_endpoint.split("/")[0]
+            # Validate host:port format
+            import re
+            if not re.match(r'^[a-zA-Z0-9._-]+(:\d{1,5})?$', new_endpoint):
+                logger.warning("Invalid endpoint format: %s", new_endpoint)
+                rumps.alert("Invalid endpoint", "Enter a valid host:port (e.g. localhost:8005)")
+                return
             if new_endpoint and new_endpoint != self._prefs.llm_endpoint:
                 self._prefs.update_endpoint(new_endpoint)
                 self._prefs.save()
@@ -567,35 +573,22 @@ class DictateMenuBarApp(rumps.App):
         return self._launch_agent_path().exists()
 
     def _set_launch_at_login(self, enabled: bool) -> None:
+        import plistlib
         import sys
 
         plist_path = self._launch_agent_path()
         if enabled:
             python = sys.executable
             project_dir = str(Path(__file__).resolve().parent.parent)
-            plist_content = (
-                '<?xml version="1.0" encoding="UTF-8"?>\n'
-                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
-                ' "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
-                '<plist version="1.0">\n'
-                "<dict>\n"
-                "  <key>Label</key>\n"
-                "  <string>com.dictate.app</string>\n"
-                "  <key>ProgramArguments</key>\n"
-                "  <array>\n"
-                f"    <string>{python}</string>\n"
-                "    <string>-m</string>\n"
-                "    <string>dictate</string>\n"
-                "  </array>\n"
-                "  <key>WorkingDirectory</key>\n"
-                f"  <string>{project_dir}</string>\n"
-                "  <key>RunAtLoad</key>\n"
-                "  <true/>\n"
-                "</dict>\n"
-                "</plist>\n"
-            )
+            plist_data = {
+                "Label": "com.dictate.app",
+                "ProgramArguments": [python, "-m", "dictate"],
+                "WorkingDirectory": project_dir,
+                "RunAtLoad": True,
+            }
             plist_path.parent.mkdir(parents=True, exist_ok=True)
-            plist_path.write_text(plist_content)
+            with open(plist_path, "wb") as f:
+                plistlib.dump(plist_data, f)
             logger.info("Launch at Login enabled: %s", plist_path)
         else:
             if plist_path.exists():

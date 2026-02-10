@@ -1,99 +1,67 @@
 # Dictate
 
-Push-to-talk voice dictation that lives in your macOS menu bar. 100% local — all processing runs on-device using Apple Silicon MLX models. No cloud, no API keys, no subscriptions.
+Push-to-talk voice dictation for macOS. Runs 100% on-device using Apple Silicon MLX models. No cloud, no API keys, no subscriptions.
 
-## Features
+Hold a key, speak, release — clean text appears wherever your cursor is.
 
-- **Menu bar app** with reactive waveform icon that follows your voice
-- **Push-to-talk**: Hold a key to record, release to transcribe
-- **Configurable PTT key**: Left Control, Right Control, Right Command, or either Option key
-- **Lock recording**: Press Space while holding PTT for hands-free dictation
-- **Auto-type**: Pastes directly into the focused window
-- **Smart routing**: Short messages use a fast local model, long messages route to your API server
-- **LLM cleanup**: Fixes grammar and punctuation using local AI models
-- **Writing styles**: Clean Up, Formal, or Bullet Points mode
-- **Personal dictionary**: Teach it names, brands, and technical terms it should always spell correctly
-- **Translation**: Transcribe in one language, output in another (12 languages)
-- **Dual STT engines**: Whisper (99+ languages) or Parakeet (4-8x faster, English)
-- **Quality presets**: Smart, Speedy (1.5B), Fast (3B), Balanced (7B), Quality (14B)
-- **Sound presets**: 6 synthesized tones (Soft Pop, Chime, Warm, Click, Marimba, Simple) or silent
-- **Pause/Resume**: Toggle dictation on and off without quitting
-- **Launch at Login**: Auto-start when you turn on your Mac
-- **Recent transcriptions**: Last 10 items, click to re-paste
-- **Hardware auto-detection**: Picks the best quality preset for your chip on first launch
-- **Singleton lock**: Prevents duplicate instances from running simultaneously
-- **100% private**: Everything runs locally. No data ever leaves your machine.
-
-All settings persist between sessions.
-
-## Requirements
-
-- macOS with Apple Silicon (any M-series chip)
-- Python 3.11+
-- ~4GB RAM minimum (Speedy preset), ~6GB recommended (Balanced)
-
-## Installation
+## Quick Start
 
 ```bash
 git clone https://github.com/0xbrando/dictate.git
 cd dictate
-
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
+dictate
 ```
 
-Models download automatically on first run (~2GB for Whisper, ~1-8GB for LLM depending on quality preset).
+That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running. Quit from the menu bar icon.
 
-### Optional: Parakeet STT (faster, English-only)
+macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically in the background (~2-4GB total, cached in `~/.cache/huggingface/`).
 
-```bash
-pip install parakeet-mlx
+## Requirements
+
+- macOS with Apple Silicon (M1/M2/M3/M4)
+- Python 3.11+
+- ~4GB RAM minimum, ~6GB recommended
+
+## How It Works
+
+```
+Hold PTT → Speak → Release → Clean text pasted into active window
 ```
 
-Parakeet is 4-8x faster than Whisper but only supports English. Select it from the menu bar after installing.
+Under the hood:
 
-## Usage
+1. **Push-to-talk** captures audio via the microphone
+2. **VAD** segments speech from silence
+3. **STT** transcribes locally (Whisper or Parakeet)
+4. **Smart skip** detects clean short phrases and skips cleanup entirely
+5. **LLM** fixes grammar, punctuation, and formatting
+6. **Auto-paste** puts the result wherever your cursor is
 
-```bash
-source .venv/bin/activate
-python -m dictate
-```
+Everything runs locally. Nothing leaves your machine.
 
-| Action | Default Key |
-|--------|-------------|
+## Controls
+
+| Action | Key |
+|--------|-----|
 | Record | Hold Left Control |
-| Lock Recording | Press Space while holding PTT |
-| Stop Locked Recording | Press PTT again |
+| Lock recording (hands-free) | Press Space while holding PTT |
+| Stop locked recording | Press PTT again |
 
-The PTT key is configurable from the menu bar. macOS will prompt for Accessibility and Microphone permissions on first run.
+The PTT key is configurable from the menu bar: Left Control, Right Control, Right Command, or either Option key.
 
-### First Launch
+## STT Engines
 
-On first launch, Dictate downloads the Whisper STT model (~2GB) and an LLM cleanup model (~1-8GB depending on your chip). This happens in the background — you'll see progress in the menu bar status:
+Both engines are included. Switch anytime from the menu bar.
 
-1. Click the waveform icon in your menu bar
-2. The top status line shows download/loading progress (e.g. "Downloading Whisper (~2GB)...")
-3. When you see **"Ready"**, you're good to go
+| Engine | Speed | Languages | Notes |
+|--------|-------|-----------|-------|
+| **Whisper Large V3 Turbo** | ~300ms | 99+ | Default. Best for multilingual or non-English |
+| **Parakeet TDT 0.6B** | ~50ms | English | 4-8x faster. Best for English-only workflows |
 
-Downloads are cached in `~/.cache/huggingface/` so this only happens once. On a fast connection it takes 1-2 minutes; on slower connections it may take longer. The app auto-detects your chip and picks the best model size — Ultra/Max chips get the 3B model, everything else gets the faster 1.5B.
-
-### Menu Bar Options
-
-All settings are accessible from the menu bar icon:
-
-- **Pause/Resume Dictation** — stop listening without quitting
-- **Microphone** — select input device
-- **Push-to-Talk Key** — choose which modifier key triggers recording
-- **STT Engine** — switch between Whisper and Parakeet (Parakeet only shown when installed)
-- **Quality** — choose model size (only shows downloaded models)
-- **Sounds** — pick recording start/stop tones (with preview)
-- **Writing Style** — Clean Up, Formal, or Bullet Points
-- **Input/Output Language** — transcription and translation settings
-- **LLM Cleanup** — toggle AI text cleanup on/off
-- **Personal Dictionary** — add names, brands, and technical terms that should always be spelled correctly. Words added here are injected into the LLM cleanup prompt.
-- **Recent** — click any recent transcription to re-paste it
-- **Launch at Login** — auto-start on boot
+Whisper handles 99+ languages out of the box. If you need non-English STT, use Whisper. Parakeet is the speed option for English speakers.
 
 ## Writing Styles
 
@@ -108,69 +76,52 @@ All settings are accessible from the menu bar icon:
 | Preset | Speed | RAM | Best for |
 |--------|-------|-----|----------|
 | Smart | ~250ms | 0 | Auto-routes: fast local for short, API server for long |
-| Speedy — 1.5B | ~120ms | 1GB | Quick fixes, great for any chip |
-| Fast — 3B | ~250ms | 2GB | Quick cleanup, everyday use |
-| Balanced — 7B | ~350ms | 5GB | Longer dictation, formal rewriting |
-| Quality — 14B | ~500ms | 9GB | Best accuracy for bullet points and rewrites |
+| Speedy (1.5B) | ~120ms | 1GB | Quick fixes, great for any chip |
+| Fast (3B) | ~250ms | 2GB | Quick cleanup, everyday use |
+| Balanced (7B) | ~350ms | 5GB | Longer dictation, formal rewriting |
+| Quality (14B) | ~500ms | 9GB | Best accuracy for bullet points and rewrites |
 
-All times measured on Mac Studio M3 Ultra. Whisper transcription adds ~300ms (Parakeet adds ~50ms).
+Times measured on M3 Ultra. The app auto-detects your chip and picks the best default — Ultra/Max get 3B, everything else gets 1.5B.
 
-The Quality menu only shows models you've already downloaded — no clutter from presets you can't use yet. To add a model, run it once from the command line:
+The Quality menu only shows models you've downloaded. To add a larger model:
 
 ```bash
 python -c "from mlx_lm import load; load('mlx-community/Qwen2.5-7B-Instruct-4bit')"
 ```
 
-### Smart Routing (API Mode)
+## Menu Bar Options
 
-When using the Smart preset with a local API server, Dictate automatically routes:
-- **Short messages** (15 words or fewer) to the fastest cached local model (~120ms)
-- **Long messages** (16+ words) to your API server for higher quality
+All settings are accessible from the waveform icon in your menu bar:
 
-This gives you the speed of a small model for quick dictations and the quality of a large model for longer text — without any manual switching.
+- **Pause/Resume** — stop listening without quitting
+- **Microphone** — select input device
+- **PTT Key** — choose your push-to-talk modifier
+- **STT Engine** — Whisper or Parakeet
+- **Quality** — model size (shows only downloaded models)
+- **Sounds** — 6 tones or silent
+- **Writing Style** — Clean Up, Formal, or Bullet Points
+- **Languages** — input and output language (12 languages for translation)
+- **LLM Cleanup** — toggle on/off
+- **Personal Dictionary** — names, brands, technical terms always spelled correctly
+- **Recent** — last 10 transcriptions, click to re-paste
+- **Launch at Login** — auto-start on boot
+- **Quit** — stop Dictate
 
-### API Server Setup
+## API Server Setup
 
-If you run a local LLM server (vllm-mlx, LM Studio, Ollama, etc.), Dictate can use it instead of loading a bundled model — zero additional RAM. Point it at any OpenAI-compatible endpoint:
+If you run a local LLM server, Dictate can use it instead of loading its own model — zero additional RAM:
 
 ```bash
-DICTATE_LLM_BACKEND=api DICTATE_LLM_API_URL=http://localhost:8005/v1/chat/completions python -m dictate
+DICTATE_LLM_BACKEND=api DICTATE_LLM_API_URL=http://localhost:8005/v1/chat/completions dictate
 ```
 
-**Recommended models for dictation cleanup:**
+Works with any OpenAI-compatible server: [vllm-mlx](https://github.com/vllm-project/vllm-mlx), [LM Studio](https://lmstudio.ai), [Ollama](https://ollama.com).
 
-| Model | Size | Speed | Notes |
-|-------|------|-------|-------|
-| Qwen2.5-3B-Instruct-4bit | 2GB | ~250ms | Best speed/quality ratio |
-| Qwen2.5-7B-Instruct-4bit | 5GB | ~350ms | Better for formal rewriting and bullet points |
-| Qwen3-Coder-Next (80B MoE) | 50GB | ~650ms | Great if you already run it for other tasks |
+### Smart Routing
 
-**Serving options:**
-- [vllm-mlx](https://github.com/vllm-project/vllm-mlx) — fastest for Apple Silicon, OpenAI-compatible out of the box
-- [LM Studio](https://lmstudio.ai) — GUI, easy model management, local server built in
-- [Ollama](https://ollama.com) — `ollama run qwen2.5:3b` then point Dictate at `http://localhost:11434/v1/chat/completions`
-
-## STT Engines
-
-| Engine | Speed | Languages | Notes |
-|--------|-------|-----------|-------|
-| **Whisper Large V3 Turbo** | ~300ms | 99+ | Default, most versatile |
-| **Parakeet TDT 0.6B** | ~50ms | English | `pip install parakeet-mlx`, 4-8x faster |
-
-Switch engines from the menu bar (when Parakeet is installed).
-
-## How It Works
-
-```
-Mic → VAD → STT (Whisper or Parakeet) → Smart Skip / LLM Cleanup → Auto-paste
-```
-
-1. **Push-to-talk** captures audio via the microphone
-2. **VAD** (voice activity detection) segments speech from silence
-3. **STT** transcribes locally — Whisper Large V3 Turbo or Parakeet TDT
-4. **Smart skip** detects clean short utterances and skips the LLM entirely
-5. **LLM** cleans up, rewrites, or converts to bullet points (with smart routing in API mode)
-6. **Auto-paste** puts the result into the focused window
+The Smart preset auto-routes based on message length:
+- **Short** (15 words or fewer) → fast local model (~120ms)
+- **Long** (16+ words) → your API server for higher quality
 
 ## Environment Variables
 
@@ -184,7 +135,35 @@ Mic → VAD → STT (Whisper or Parakeet) → Smart Skip / LLM Cleanup → Auto-
 | `DICTATE_LLM_MODEL` | `qwen-1.5b`, `qwen`, `qwen-7b`, `qwen-14b` | `qwen` |
 | `DICTATE_LLM_BACKEND` | `local` or `api` | `local` |
 | `DICTATE_LLM_API_URL` | OpenAI-compatible endpoint | `http://localhost:8005/v1/chat/completions` |
-| `DICTATE_ALLOW_REMOTE_API` | Set to `1` to allow non-localhost API URLs | unset |
+| `DICTATE_ALLOW_REMOTE_API` | Allow non-localhost API URLs | unset |
+
+## Agent Integration
+
+Dictate works well as a voice input layer for AI assistants and agent frameworks. If you're building with tools like Claude Code, OpenClaw, or similar — Dictate gives your setup a local, private voice interface with zero cloud dependency.
+
+Your assistant can help install Dictate by following the Quick Start above. Once running, dictation output goes directly into whatever window has focus — including terminals, chat interfaces, and code editors.
+
+## Debugging
+
+Run in the foreground to see logs:
+
+```bash
+source .venv/bin/activate
+python -m dictate
+```
+
+Or check the background log:
+
+```bash
+tail -f /tmp/dictate.log
+```
+
+## Security
+
+- All processing is local. Audio and text never leave your machine.
+- LLM endpoints are restricted to localhost by default. Set `DICTATE_ALLOW_REMOTE_API=1` to override.
+- Preferences stored with `0o600` permissions (owner-only read/write).
+- No API keys, tokens, or accounts required.
 
 ## License
 

@@ -358,7 +358,15 @@ class Preferences:
                 endpoint = endpoint[8:]
             # Remove trailing slash and path
             endpoint = endpoint.split("/")[0]
-            return f"http://{endpoint}/v1/chat/completions"
+            url = f"http://{endpoint}/v1/chat/completions"
+            # Apply same localhost safety check as legacy path
+            if not self._is_safe_api_url(url):
+                if os.environ.get("DICTATE_ALLOW_REMOTE_API") == "1":
+                    logger.warning("Remote API endpoint allowed via DICTATE_ALLOW_REMOTE_API: %s", endpoint)
+                else:
+                    logger.warning("Blocked non-localhost endpoint: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)", endpoint)
+                    return "http://localhost:8005/v1/chat/completions"
+            return url
 
         # Legacy local backend uses the stored api_url
         if self._is_safe_api_url(self.api_url):

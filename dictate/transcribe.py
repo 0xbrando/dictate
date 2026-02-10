@@ -98,39 +98,6 @@ class WhisperTranscriber:
             text = result.get("text", "")
             return str(text) if isinstance(text, str) else ""
 
-    def _save_temp_wav(
-        self,
-        audio: "NDArray[np.int16]",
-        sample_rate: int,
-    ) -> str:
-        """Deprecated: Use _temp_wav_context instead."""
-        fd, path = tempfile.mkstemp(suffix=".wav", prefix="dictate_")
-        os.close(fd)
-        try:
-            try:
-                wav_write(path, sample_rate, audio)
-            except OSError as e:
-                # Clean up the temp file if write failed
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
-                raise RuntimeError(f"Failed to save temporary WAV file (disk full?): {e}") from e
-            return path
-        except Exception:
-            # Clean up on any error during setup
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-            raise
-
-    def _cleanup_temp_file(self, path: str) -> None:
-        """Deprecated: Use _temp_wav_context instead."""
-        try:
-            os.remove(path)
-        except OSError as e:
-            logger.warning("Failed to remove temp file %s: %s", path, e)
 
 
 def _dedup_transcription(text: str) -> str:
