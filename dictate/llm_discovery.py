@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
@@ -65,8 +66,12 @@ def _try_openai_models(endpoint: str) -> DiscoveredModel | None:
                     endpoint=endpoint,
                     is_available=True,
                 )
-    except Exception:
-        pass
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
+        logger.debug("OpenAI endpoint not reachable at %s", endpoint)
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        logger.warning("Unexpected response from OpenAI endpoint %s: %s", endpoint, e)
+    except Exception as e:
+        logger.debug("OpenAI discovery failed at %s: %s", endpoint, e)
     return None
 
 
@@ -90,8 +95,12 @@ def _try_ollama_tags(endpoint: str) -> DiscoveredModel | None:
                         endpoint=endpoint,
                         is_available=True,
                     )
-    except Exception:
-        pass
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
+        logger.debug("Ollama endpoint not reachable at %s", endpoint)
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        logger.warning("Unexpected response from Ollama endpoint %s: %s", endpoint, e)
+    except Exception as e:
+        logger.debug("Ollama discovery failed at %s: %s", endpoint, e)
     return None
 
 

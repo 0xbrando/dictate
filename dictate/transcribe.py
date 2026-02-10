@@ -85,8 +85,8 @@ class WhisperTranscriber:
             import mlx_whisper
 
             if not self._model_loaded:
-                logger.info("Loading Whisper model: %s", self._config.model)
-                self._model_loaded = True
+                logger.info("Lazy-loading Whisper model: %s", self._config.model)
+                # Flag set after first successful transcribe() call below
 
             transcribe_language = language if language is not None else self._config.language
 
@@ -95,6 +95,7 @@ class WhisperTranscriber:
                 path_or_hf_repo=self._config.model,
                 language=transcribe_language,
             )
+            self._model_loaded = True
             text = result.get("text", "")
             return str(text) if isinstance(text, str) else ""
 
@@ -310,6 +311,7 @@ class APITextCleaner:
 
     def __init__(self, config: "LLMConfig") -> None:
         self._config = config
+        self._last_cleanup_failed = False
 
     def load_model(self) -> None:
         """No model to load — verify server is reachable."""
@@ -319,8 +321,12 @@ class APITextCleaner:
             with urllib.request.urlopen(req, timeout=3):
                 pass
             print(f"   API: {self._config.api_url} ✓")
-        except Exception:
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            logger.info("API server not reachable at %s: %s", url, e)
             print(f"   API: {self._config.api_url} (will retry on first use)")
+        except Exception as e:
+            logger.warning("API server check failed at %s: %s", url, e)
+            print(f"   API: {self._config.api_url} (error: {e})")
 
     def cleanup(self, text: str, output_language: str | None = None) -> str:
         if not self._config.enabled:
@@ -351,9 +357,8 @@ class APITextCleaner:
                 result = json.loads(resp.read())
             content = result["choices"][0]["message"]["content"].strip()
             return _postprocess(content)
-        except urllib.error.URLError as e:
-            logger.warning("API connection error: %s (%s), retrying...", type(e).__name__, e)
-            # One retry with short backoff for network issues
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            logger.warning("API %s: %s, retrying...", type(e).__name__, e)
             import time
             time.sleep(0.5)
             try:
@@ -361,24 +366,21 @@ class APITextCleaner:
                     result = json.loads(resp.read())
                 content = result["choices"][0]["message"]["content"].strip()
                 return _postprocess(content)
-            except Exception as e2:
-                logger.error("API retry failed: %s (%s), returning raw text", type(e2).__name__, e2)
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e2:
+                logger.error("API retry failed: %s, returning raw text", e2)
+                self._last_cleanup_failed = True
                 return text
-        except TimeoutError as e:
-            logger.warning("API timeout: %s (%s), retrying...", type(e).__name__, e)
-            # One retry with short backoff for timeouts
-            import time
-            time.sleep(0.5)
-            try:
-                with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
-                    result = json.loads(resp.read())
-                content = result["choices"][0]["message"]["content"].strip()
-                return _postprocess(content)
-            except Exception as e2:
-                logger.error("API retry failed: %s (%s), returning raw text", type(e2).__name__, e2)
+            except (json.JSONDecodeError, KeyError, IndexError) as e2:
+                logger.error("API returned unexpected response on retry: %s", e2)
+                self._last_cleanup_failed = True
                 return text
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            logger.error("API returned unexpected response: %s — check server config", e)
+            self._last_cleanup_failed = True
+            return text
         except Exception as e:
             logger.exception("API cleanup failed (%s: %s), returning raw text", type(e).__name__, e)
+            self._last_cleanup_failed = True
             return text
 
 
@@ -446,6 +448,7 @@ class TranscriptionPipeline:
         self._sample_rate = 16_000
         self._last_output: str = ""
         self._last_output_time: float = 0.0
+        self.last_cleanup_failed: bool = False
 
     @staticmethod
     def _create_fast_cleaner(llm_config: "LLMConfig") -> "TextCleaner | None":
@@ -606,6 +609,12 @@ class TranscriptionPipeline:
         t2 = time.time()
         cleaned_text = cleaner.cleanup(raw_text, output_language=output_language).strip()
         t3 = time.time()
+
+        # Surface cleanup failures to UI
+        failed = getattr(cleaner, "_last_cleanup_failed", False)
+        if failed:
+            cleaner._last_cleanup_failed = False
+        self.last_cleanup_failed = failed
 
         if not cleaned_text:
             logger.info("Cleanup failed")

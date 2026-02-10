@@ -138,7 +138,11 @@ class DictateMenuBarApp(rumps.App):
 
     def _check_device_changes(self) -> None:
         """Detect audio device hot-plug/unplug and rebuild menu."""
-        current_ids = {d.index for d in list_input_devices()}
+        try:
+            current_ids = {d.index for d in list_input_devices()}
+        except Exception:
+            logger.debug("Device enumeration failed, skipping check", exc_info=True)
+            return
         if current_ids == self._known_device_ids:
             return
         added = current_ids - self._known_device_ids
@@ -877,19 +881,26 @@ class DictateMenuBarApp(rumps.App):
             text = self._pipeline.process(audio)
             if text:
                 self._emit_output(text)
+                if self._pipeline.last_cleanup_failed:
+                    self._post_ui("status", "Ready (cleanup skipped)")
+                else:
+                    self._post_ui("status", "Ready")
+            else:
+                self._post_ui("status", "Ready")
         except Exception:
             logger.exception("Processing error")
-        finally:
-            self._post_ui("status", "Ready")
+            self._post_ui("status", "Processing error")
 
     def _emit_output(self, text: str) -> None:
         self._aggregator.append(text)
+        # Add to recent first so text isn't lost if output fails
+        self._post_ui("recent", text)
         try:
             self._output.output(text)
             self._post_ui("notify", text)
-            self._post_ui("recent", text)
         except Exception:
-            logger.exception("Output error")
+            logger.exception("Output error — text saved to Recent")
+            self._post_ui("status", "Output error — check Recent")
 
     # ── Shutdown ───────────────────────────────────────────────────
 

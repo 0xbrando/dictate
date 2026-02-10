@@ -27,7 +27,8 @@ def detect_chip() -> str:
         ).strip()
         # e.g. "Apple M2", "Apple M3 Pro", "Apple M4 Ultra"
         return raw.replace("Apple ", "")
-    except Exception:
+    except Exception as e:
+        logger.warning("Could not detect chip: %s", e)
         return "Unknown"
 
 

@@ -31,6 +31,7 @@ def _acquire_singleton_lock() -> int | None:
     Returns the lock fd on success, or None if another instance is running.
     The fd must be kept open for the lifetime of the process.
     """
+    import errno
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_RDWR, 0o600)
     try:
@@ -38,22 +39,34 @@ def _acquire_singleton_lock() -> int | None:
         os.write(fd, f"{os.getpid()}\n".encode())
         os.ftruncate(fd, os.lseek(fd, 0, os.SEEK_CUR))
         return fd
-    except OSError:
+    except OSError as e:
         os.close(fd)
+        if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK, errno.EACCES):
+            return None  # Another instance holds the lock
+        # Unexpected OS error — log it so the user can debug
+        print(f"Lock file error: {e}", file=sys.stderr)
         return None
 
 
 def _daemonize() -> None:
     """Fork into the background so the launching terminal can be closed."""
-    if os.fork() > 0:
-        # Parent exits — terminal gets its prompt back
-        os._exit(0)
+    try:
+        if os.fork() > 0:
+            # Parent exits — terminal gets its prompt back
+            os._exit(0)
+    except OSError as e:
+        print(f"Fork failed ({e}), running in foreground", file=sys.stderr)
+        return
     os.setsid()
     # Ignore SIGHUP so closing the original terminal doesn't kill us
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
     # Redirect stdio to log file so nothing ties us to the terminal
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    log_fd = os.open(str(LOG_FILE), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o644)
+    try:
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        log_fd = os.open(str(LOG_FILE), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o644)
+    except OSError:
+        # Can't open log file — redirect to /dev/null instead
+        log_fd = os.open(os.devnull, os.O_WRONLY)
     devnull = os.open(os.devnull, os.O_RDONLY)
     os.dup2(devnull, 0)   # stdin
     os.dup2(log_fd, 1)    # stdout
