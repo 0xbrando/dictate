@@ -41,6 +41,14 @@ class TyperOutput(OutputHandler):
             self._controller.press('v')
             self._controller.release('v')
             self._controller.release(Key.cmd)
+        except pyperclip.PyperclipException as e:
+            logger.error("Clipboard not available: %s", e)
+            # Try to fall back to direct typing
+            try:
+                self._controller.type(text)
+            except Exception as type_e:
+                logger.error("Failed to type text directly: %s", type_e)
+                raise RuntimeError(f"Failed to output text (clipboard unavailable and typing failed): {type_e}") from type_e
         except Exception as e:
             logger.error("Failed to paste text: %s", e)
             raise

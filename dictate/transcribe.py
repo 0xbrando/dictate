@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
 
@@ -25,6 +28,29 @@ logger = logging.getLogger(__name__)
 API_TIMEOUT_SECONDS = 15
 
 
+@contextlib.contextmanager
+def _temp_wav_context(audio: "NDArray[np.int16]", sample_rate: int):
+    """Context manager for creating and cleaning up temporary WAV files."""
+    fd, path = tempfile.mkstemp(suffix=".wav", prefix="dictate_")
+    os.close(fd)
+    try:
+        try:
+            wav_write(path, sample_rate, audio)
+        except OSError as e:
+            # Clean up the temp file if write failed
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            raise RuntimeError(f"Failed to save temporary WAV file (disk full?): {e}") from e
+        yield path
+    finally:
+        try:
+            os.remove(path)
+        except OSError as e:
+            logger.warning("Failed to remove temp file %s: %s", path, e)
+
+
 class WhisperTranscriber:
     def __init__(self, config: "WhisperConfig") -> None:
         self._config = config
@@ -39,9 +65,8 @@ class WhisperTranscriber:
         import mlx_whisper
         import numpy as np
         silent_audio = np.zeros(16000, dtype=np.int16)
-        wav_path = self._save_temp_wav(silent_audio, 16000)
 
-        try:
+        with _temp_wav_context(silent_audio, 16000) as wav_path:
             mlx_whisper.transcribe(
                 wav_path,
                 path_or_hf_repo=self._config.model,
@@ -49,8 +74,6 @@ class WhisperTranscriber:
             )
             self._model_loaded = True
             print("✓")
-        finally:
-            self._cleanup_temp_file(wav_path)
 
     def transcribe(
         self,
@@ -58,8 +81,7 @@ class WhisperTranscriber:
         sample_rate: int,
         language: str | None = None,
     ) -> str:
-        wav_path = self._save_temp_wav(audio, sample_rate)
-        try:
+        with _temp_wav_context(audio, sample_rate) as wav_path:
             import mlx_whisper
 
             if not self._model_loaded:
@@ -75,20 +97,36 @@ class WhisperTranscriber:
             )
             text = result.get("text", "")
             return str(text) if isinstance(text, str) else ""
-        finally:
-            self._cleanup_temp_file(wav_path)
 
     def _save_temp_wav(
         self,
         audio: "NDArray[np.int16]",
         sample_rate: int,
     ) -> str:
+        """Deprecated: Use _temp_wav_context instead."""
         fd, path = tempfile.mkstemp(suffix=".wav", prefix="dictate_")
         os.close(fd)
-        wav_write(path, sample_rate, audio)
-        return path
+        try:
+            try:
+                wav_write(path, sample_rate, audio)
+            except OSError as e:
+                # Clean up the temp file if write failed
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                raise RuntimeError(f"Failed to save temporary WAV file (disk full?): {e}") from e
+            return path
+        except Exception:
+            # Clean up on any error during setup
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            raise
 
     def _cleanup_temp_file(self, path: str) -> None:
+        """Deprecated: Use _temp_wav_context instead."""
         try:
             os.remove(path)
         except OSError as e:
@@ -161,20 +199,11 @@ class ParakeetTranscriber:
         if self._model is None:
             self.load_model()
 
-        fd, path = tempfile.mkstemp(suffix=".wav", prefix="dictate_")
-        os.close(fd)
-        wav_write(path, sample_rate, audio)
-
-        try:
+        with _temp_wav_context(audio, sample_rate) as path:
             result = self._model.transcribe(path)
             text = getattr(result, "text", "")
             text = str(text).strip() if isinstance(text, str) else ""
             return _dedup_transcription(text)
-        finally:
-            try:
-                os.remove(path)
-            except OSError as e:
-                logger.warning("Failed to remove temp file %s: %s", path, e)
 
 
 # ── Shared postprocessing ────────────────────────────────────────
@@ -355,8 +384,34 @@ class APITextCleaner:
                 result = json.loads(resp.read())
             content = result["choices"][0]["message"]["content"].strip()
             return _postprocess(content)
-        except Exception:
-            logger.exception("API cleanup failed, returning raw text")
+        except urllib.error.URLError as e:
+            logger.warning("API connection error: %s (%s), retrying...", type(e).__name__, e)
+            # One retry with short backoff for network issues
+            import time
+            time.sleep(0.5)
+            try:
+                with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+                    result = json.loads(resp.read())
+                content = result["choices"][0]["message"]["content"].strip()
+                return _postprocess(content)
+            except Exception as e2:
+                logger.error("API retry failed: %s (%s), returning raw text", type(e2).__name__, e2)
+                return text
+        except TimeoutError as e:
+            logger.warning("API timeout: %s (%s), retrying...", type(e).__name__, e)
+            # One retry with short backoff for timeouts
+            import time
+            time.sleep(0.5)
+            try:
+                with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+                    result = json.loads(resp.read())
+                content = result["choices"][0]["message"]["content"].strip()
+                return _postprocess(content)
+            except Exception as e2:
+                logger.error("API retry failed: %s (%s), returning raw text", type(e2).__name__, e2)
+                return text
+        except Exception as e:
+            logger.exception("API cleanup failed (%s: %s), returning raw text", type(e).__name__, e)
             return text
 
 

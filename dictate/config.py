@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -11,6 +12,8 @@ if TYPE_CHECKING:
     from pynput.keyboard import Key
 
 from pynput import keyboard
+
+logger = logging.getLogger(__name__)
 
 
 class STTEngine(str, Enum):
@@ -79,6 +82,8 @@ class AudioConfig:
 
     @property
     def block_size(self) -> int:
+        if self.block_ms <= 0:
+            raise ValueError(f"block_ms must be positive, got {self.block_ms}")
         return int(self.sample_rate * (self.block_ms / 1000.0))
 
 
@@ -275,14 +280,14 @@ class Config:
             try:
                 config.llm.model_choice = LLMModel(llm_model.lower())
             except ValueError:
-                pass  # Keep default if invalid value
+                logger.warning("Invalid DICTATE_LLM_MODEL=%r, using default %r", llm_model, config.llm.model_choice)
 
         # LLM backend (local or api)
         if llm_backend := os.environ.get("DICTATE_LLM_BACKEND"):
             try:
                 config.llm.backend = LLMBackend(llm_backend.lower())
             except ValueError:
-                pass
+                logger.warning("Invalid DICTATE_LLM_BACKEND=%r, using default %r", llm_backend, config.llm.backend)
 
         # LLM API URL (for api backend)
         if api_url := os.environ.get("DICTATE_LLM_API_URL"):

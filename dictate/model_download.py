@@ -25,6 +25,9 @@ MODEL_SIZES: dict[str, float] = {
     "mlx-community/parakeet-tdt-0.6b-v3": 0.5,
 }
 
+# Default timeout for model downloads (in seconds)
+DEFAULT_DOWNLOAD_TIMEOUT = 600  # 10 minutes
+
 # Lock to prevent concurrent downloads of the same model
 _download_locks: dict[str, threading.Lock] = {}
 _locks_mutex = threading.Lock()
@@ -119,6 +122,7 @@ def download_model(
     hf_repo: str, 
     progress_callback: Callable[[float], None] | None = None,
     cache_dir: str | None = None,
+    timeout: float | None = None,
 ) -> None:
     """Download a model from HuggingFace with progress tracking.
     
@@ -129,32 +133,30 @@ def download_model(
         hf_repo: HuggingFace repository name (e.g., 'mlx-community/Qwen2.5-3B-Instruct-4bit')
         progress_callback: Optional callback function called with progress percentage (0-100)
         cache_dir: Optional cache directory (defaults to HuggingFace default)
+        timeout: Optional timeout in seconds (defaults to 10 minutes)
         
     Raises:
-        Exception: If download fails
+        Exception: If download fails or times out
     """
+    timeout = timeout or DEFAULT_DOWNLOAD_TIMEOUT
+    
     # Get or create a lock for this model to prevent concurrent downloads
     with _locks_mutex:
         if hf_repo not in _download_locks:
             _download_locks[hf_repo] = threading.Lock()
         model_lock = _download_locks[hf_repo]
     
-    # Try to acquire lock without blocking - if another thread is downloading, wait
-    if not model_lock.acquire(blocking=False):
-        logger.info("Another download already in progress for %s, waiting...", hf_repo)
-        model_lock.acquire()  # Block until other download completes
-        model_lock.release()
-        # Model should now be cached, but verify
+    # Use a single with statement for proper lock management
+    # This avoids potential deadlock from multiple acquire/release cycles
+    with model_lock:
+        # Check if already cached (another thread may have downloaded it)
         from dictate.config import is_model_cached
         if is_model_cached(hf_repo):
-            logger.info("Model %s was downloaded by another thread", hf_repo)
+            logger.info("Model %s is already cached", hf_repo)
             if progress_callback:
                 progress_callback(100.0)
             return
-        # If not cached, proceed with our own download
-        model_lock.acquire()
-    
-    try:
+        
         logger.info("Starting download for %s", hf_repo)
         
         # Create progress tracker
@@ -193,20 +195,17 @@ def download_model(
             def __exit__(inner_self, *args):
                 inner_self.close()
         
-        snapshot_download(
-            repo_id=hf_repo,
-            cache_dir=cache_dir,
-            tqdm_class=ProgressTqdm,
-        )
-        
-        tracker.report_completion()
-        logger.info("Download completed for %s", hf_repo)
-        
-    except Exception as e:
-        logger.exception("Download failed for %s", hf_repo)
-        raise
-    finally:
-        model_lock.release()
+        try:
+            snapshot_download(
+                repo_id=hf_repo,
+                cache_dir=cache_dir,
+                tqdm_class=ProgressTqdm,
+            )
+            tracker.report_completion()
+            logger.info("Download completed for %s", hf_repo)
+        except Exception as e:
+            logger.exception("Download failed for %s", hf_repo)
+            raise
 
 
 def is_download_in_progress(hf_repo: str) -> bool:

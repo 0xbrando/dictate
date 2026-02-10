@@ -242,9 +242,16 @@ class AudioCapture:
         self._start_stream()
 
     def stop(self) -> float:
+        """Stop recording and return the duration.
+        
+        Note: We set _recording = False before stopping the stream to prevent
+        the callback from processing stale data during the race with the callback thread.
+        """
         with self._lock:
             if not self._recording:
                 return 0.0
+            # Set recording to False BEFORE stopping stream to prevent
+            # callback from processing stale data during the race
             self._recording = False
             duration = time.time() - self._recording_started_at
 
@@ -253,15 +260,37 @@ class AudioCapture:
         return duration
 
     def _start_stream(self) -> None:
-        self._stream = sd.InputStream(
-            samplerate=self._audio_config.sample_rate,
-            channels=self._audio_config.channels,
-            dtype="float32",
-            blocksize=self._audio_config.block_size,
-            device=self._audio_config.device_id,
-            callback=self._audio_callback,
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.InputStream(
+                samplerate=self._audio_config.sample_rate,
+                channels=self._audio_config.channels,
+                dtype="float32",
+                blocksize=self._audio_config.block_size,
+                device=self._audio_config.device_id,
+                callback=self._audio_callback,
+            )
+            self._stream.start()
+        except sd.PortAudioError as e:
+            error_msg = str(e).lower()
+            if "invalid device" in error_msg or "device not found" in error_msg or "bad device" in error_msg:
+                logger.error("Audio device not found or invalid: %s", e)
+                self._stream = None
+                # Set recording to False since we can't start
+                with self._lock:
+                    self._recording = False
+                raise RuntimeError(f"Audio device not available: {e}") from e
+            else:
+                logger.error("Failed to start audio stream: %s", e)
+                self._stream = None
+                with self._lock:
+                    self._recording = False
+                raise
+        except Exception as e:
+            logger.exception("Unexpected error starting audio stream")
+            self._stream = None
+            with self._lock:
+                self._recording = False
+            raise
 
     def _stop_stream(self) -> None:
         if self._stream:
@@ -281,7 +310,16 @@ class AudioCapture:
         status: sd.CallbackFlags,
     ) -> None:
         if status:
-            logger.warning("Audio callback status: %s", status)
+            # Handle specific callback flags
+            if status.input_overflow:
+                logger.warning("Audio input overflow - samples dropped due to slow processing")
+            if status.input_underflow:
+                logger.warning("Audio input underflow - device may be disconnecting")
+            if status.priming_output:
+                logger.debug("Audio output priming (expected during startup)")
+            # Log the full status for debugging
+            if not (status.input_overflow or status.input_underflow):
+                logger.warning("Audio callback status: %s", status)
 
         audio = indata[:, FIRST_CHANNEL_INDEX].astype(np.float32, copy=True)
         self._process_audio_block(audio)
