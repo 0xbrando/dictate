@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dictate"
+name = "dictate-mlx"
 version = "2.0.0"
 description = "Push-to-Talk Voice Dictation menu bar app for macOS using Apple Silicon MLX"
 readme = "README.md"
