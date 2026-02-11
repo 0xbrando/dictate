@@ -188,17 +188,19 @@ class DictateMenuBarApp(rumps.App):
 
         # Build Advanced submenu for power-user features
         advanced_menu = rumps.MenuItem("Advanced...")
+        advanced_menu.add(self._build_llm_toggle())
+        advanced_menu.add(self._build_login_toggle())
+        advanced_menu.add(None)
         advanced_menu.add(self._build_stt_menu())
         advanced_menu.add(self._build_ptt_key_menu())
+        advanced_menu.add(self._build_sound_menu())
+        advanced_menu.add(None)
         advanced_menu.add(self._build_input_lang_menu())
         advanced_menu.add(self._build_output_lang_menu())
-        advanced_menu.add(self._build_sound_menu())
-        advanced_menu.add(self._build_endpoint_menu())
-        advanced_menu.add(self._build_manage_models_menu())
         advanced_menu.add(None)
-        advanced_menu.add(self._build_llm_toggle())
+        advanced_menu.add(self._build_endpoint_menu())
         advanced_menu.add(self._build_dictionary_menu())
-        advanced_menu.add(self._build_login_toggle())
+        advanced_menu.add(self._build_manage_models_menu())
 
         self.menu = [
             self._status_item,
