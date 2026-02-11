@@ -70,6 +70,8 @@ Parakeet is the default for speed. Switch to Whisper from the menu bar if you ne
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
 | **Formal** | Rewrites in a professional tone |
 | **Bullet Points** | Distills your dictation into concise key points |
+| **Email** | Formats as a professional email with greeting and sign-off |
+| **Code Comment** | Converts speech into clean code comments and docstrings |
 
 ## Quality Presets
 
@@ -99,7 +101,7 @@ All settings are accessible from the waveform icon in your menu bar:
 - **STT Engine** — Whisper or Parakeet
 - **Quality** — model size (shows only downloaded models)
 - **Sounds** — 6 tones or silent
-- **Writing Style** — Clean Up, Formal, or Bullet Points
+- **Writing Style** — Clean Up, Formal, Bullet Points, Email, or Code Comment
 - **Languages** — input and output language (12 languages for translation)
 - **LLM Cleanup** — toggle on/off
 - **Personal Dictionary** — names, brands, technical terms always spelled correctly
