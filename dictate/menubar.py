@@ -93,9 +93,9 @@ class DictateMenuBarApp(rumps.App):
         whisper_cached = is_model_cached(WHISPER_MODEL)
         llm_cached = is_model_cached(self._prefs.llm_model.hf_repo)
         if whisper_cached and llm_cached:
-            init_status = "🟡 Loading models..."
+            init_status = "◐ Loading models..."
         else:
-            init_status = "🟡 Downloading models (first launch)..."
+            init_status = "◐ Downloading models (first launch)..."
         self._status_item = rumps.MenuItem(init_status)
         self._build_menu()
 
@@ -113,15 +113,15 @@ class DictateMenuBarApp(rumps.App):
             if kind == "status":
                 status_text = msg[1]
                 if status_text in ("Ready", "Ready (cleanup skipped)"):
-                    self._status_item.title = f"🟢 {status_text}"
+                    self._status_item.title = f"● {status_text}"
                 elif status_text == "Paused":
-                    self._status_item.title = f"🔴 {status_text}"
+                    self._status_item.title = f"○ {status_text}"
                 elif "Recording" in status_text or "Processing" in status_text:
-                    self._status_item.title = f"🟢 {status_text}"
+                    self._status_item.title = f"● {status_text}"
                 elif "error" in status_text.lower() or "failed" in status_text.lower() or "No microphone" in status_text:
-                    self._status_item.title = f"🔴 {status_text}"
+                    self._status_item.title = f"○ {status_text}"
                 else:
-                    self._status_item.title = f"🟡 {status_text}"
+                    self._status_item.title = f"◐ {status_text}"
             elif kind == "icon":
                 self.icon = get_icon_path(msg[1])
             elif kind == "notify":
