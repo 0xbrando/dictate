@@ -4,7 +4,18 @@ Push-to-talk voice dictation for macOS. Runs 100% on-device using Apple Silicon 
 
 Hold a key, speak, release — clean text appears wherever your cursor is.
 
-## Quick Start
+## Install
+
+```bash
+pip install dictate-mlx
+dictate
+```
+
+That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running. Quit from the menu bar icon.
+
+macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically in the background (~2-4GB total, cached in `~/.cache/huggingface/`).
+
+### Install from source
 
 ```bash
 git clone https://github.com/0xbrando/dictate.git
@@ -14,10 +25,6 @@ source .venv/bin/activate
 pip install -e .
 dictate
 ```
-
-That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running. Quit from the menu bar icon.
-
-macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically in the background (~2-4GB total, cached in `~/.cache/huggingface/`).
 
 ## Requirements
 
@@ -89,23 +96,25 @@ The Quality menu only shows models you've downloaded. To add a larger model:
 python -c "from mlx_lm import load; load('mlx-community/Qwen2.5-7B-Instruct-4bit')"
 ```
 
-## Menu Bar Options
+## Menu Bar
 
-All settings are accessible from the waveform icon in your menu bar:
+All settings accessible from the waveform icon in your menu bar:
 
-- **Pause/Resume** — stop listening without quitting
-- **Microphone** — select input device
-- **PTT Key** — choose your push-to-talk modifier
-- **STT Engine** — Whisper or Parakeet
-- **Quality** — model size (shows only downloaded models)
-- **Sounds** — 6 tones or silent
+**Main menu:**
 - **Writing Style** — Clean Up, Formal, or Bullet Points
+- **Quality** — model size (shows only downloaded models)
+- **Input Device** — select microphone
+- **Recent** — last 10 transcriptions, click to re-paste
+
+**Advanced settings:**
+- **STT Engine** — Whisper or Parakeet
+- **PTT Key** — choose your push-to-talk modifier
 - **Languages** — input and output language (12 languages for translation)
+- **Sounds** — 6 tones or silent
+- **LLM Endpoint** — configure API server
 - **LLM Cleanup** — toggle on/off
 - **Personal Dictionary** — names, brands, technical terms always spelled correctly
-- **Recent** — last 10 transcriptions, click to re-paste
 - **Launch at Login** — auto-start on boot
-- **Quit** — stop Dictate
 
 ## API Server Setup
 
@@ -140,8 +149,6 @@ The Smart preset auto-routes based on message length:
 ## Agent Integration
 
 Dictate works well as a voice input layer for AI assistants and agent frameworks. If you're building with tools like Claude Code, OpenClaw, or similar — Dictate gives your setup a local, private voice interface with zero cloud dependency.
-
-Your assistant can help install Dictate by following the Quick Start above. Once running, dictation output goes directly into whatever window has focus — including terminals, chat interfaces, and code editors.
 
 ## Debugging
 
