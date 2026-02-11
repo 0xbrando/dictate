@@ -143,6 +143,44 @@ def main() -> int:
     # Daemonize before anything else — detach from terminal
     foreground = "--foreground" in sys.argv or "-f" in sys.argv
     if not foreground and sys.stdin is not None and hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+        from dictate import __version__
+        Y = "\033[33m"    # yellow/dark orange
+        O = "\033[93m"    # bright yellow/orange
+        W = "\033[97m"    # bright white
+        D = "\033[2m"     # dim
+        B = "\033[1m"     # bold
+        R = "\033[0m"     # reset
+        print(f"""
+{O}       ___      __        __
+{O}  ____/ (_)____/ /_____ _/ /____
+{Y} / __  / / ___/ __/ __ `/ __/ _ \\
+{Y}/ /_/ / / /__/ /_/ /_/ / /_/  __/
+{Y}\\__,_/_/\\___/\\__/\\__,_/\\__/\\___/{R}
+
+  {W}{B}speak. it types.{R}  {D}v{__version__}{R}
+
+  {D}Dictate is now running in your menu bar.
+  You can close this terminal — it won't stop the app.{R}
+
+  {W}HOW TO USE{R}
+  {D}Hold{R} {O}Left Ctrl{R}       {D}talk, release to transcribe{R}
+  {D}Hold{R} {O}Ctrl + Space{R}    {D}lock recording (hands-free){R}
+  {D}Tap{R}  {O}Ctrl{R}            {D}to stop locked recording{R}
+  {D}Change the key, model, and more from the menu bar icon.{R}
+
+  {W}TIPS{R}
+  {D}Parakeet is English-only. Switch to Whisper for other languages
+  under Advanced → STT Engine.{R}
+  {D}Writing styles (Clean, Formal, Bullets) change how your text
+  is polished — find them in the menu bar.{R}
+  {D}Add jargon, names, or slang to your personal dictionary so
+  they're never misheard — Advanced → Dictionary.{R}
+
+  {W}COMMANDS{R}
+  {O}dictate{R}          {D}launch dictate{R}
+  {O}dictate update{R}   {D}update to the latest version{R}
+  {O}dictate -f{R}       {D}run in foreground (debug){R}
+""", flush=True)
         _daemonize()
 
     setup_logging()
