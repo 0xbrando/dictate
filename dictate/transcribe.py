@@ -6,6 +6,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 import urllib.error
@@ -188,6 +189,8 @@ def _postprocess(text: str) -> str:
     ]
     for token in special_tokens:
         text = text.replace(token, "")
+    # Strip <think>...</think> blocks from reasoning models (Qwen3, DeepSeek R1)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = text.strip()
     text_lower = text.lower()
 
