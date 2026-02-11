@@ -101,30 +101,28 @@ def _acquire_singleton_lock() -> int | None:
 
 
 def _daemonize() -> None:
-    """Fork into the background so the launching terminal can be closed."""
+    """Re-launch as a detached background process.
+
+    os.fork() is incompatible with macOS AppKit/ObjC — the forked child
+    crashes with objc_initializeAfterForkError.  Instead we spawn a fresh
+    subprocess with --foreground so the child runs the app directly.
+    """
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    log_fd = open(LOG_FILE, "a")
     try:
-        if os.fork() > 0:
-            # Parent exits — terminal gets its prompt back
-            os._exit(0)
+        subprocess.Popen(
+            [sys.executable, "-m", "dictate.menubar_main", "--foreground"],
+            stdout=log_fd,
+            stderr=log_fd,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
     except OSError as e:
-        print(f"Fork failed ({e}), running in foreground", file=sys.stderr)
+        print(f"Background launch failed ({e}), running in foreground", file=sys.stderr)
+        log_fd.close()
         return
-    os.setsid()
-    # Ignore SIGHUP so closing the original terminal doesn't kill us
-    signal.signal(signal.SIGHUP, signal.SIG_IGN)
-    # Redirect stdio to log file so nothing ties us to the terminal
-    try:
-        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        log_fd = os.open(str(LOG_FILE), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o644)
-    except OSError:
-        # Can't open log file — redirect to /dev/null instead
-        log_fd = os.open(os.devnull, os.O_WRONLY)
-    devnull = os.open(os.devnull, os.O_RDONLY)
-    os.dup2(devnull, 0)   # stdin
-    os.dup2(log_fd, 1)    # stdout
-    os.dup2(log_fd, 2)    # stderr
-    os.close(devnull)
-    os.close(log_fd)
+    log_fd.close()
+    os._exit(0)
 
 
 def setup_logging() -> None:
