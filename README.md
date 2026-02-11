@@ -17,6 +17,8 @@ dictate
 
 That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running. Quit from the menu bar icon.
 
+<img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
+
 macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically in the background (~2-4GB total, cached in `~/.cache/huggingface/`).
 
 ### Install from source
