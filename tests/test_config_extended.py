@@ -33,9 +33,9 @@ class TestConfigFromEnvExtended:
         """Test DICTATE_WHISPER_MODEL sets custom whisper model."""
         from dictate.config import Config
         
-        monkeypatch.setenv("DICTATE_WHISPER_MODEL", "custom/whisper-model")
+        monkeypatch.setenv("DICTATE_WHISPER_MODEL", "mlx-community/whisper-custom")
         config = Config.from_env()
-        assert config.whisper.model == "custom/whisper-model"
+        assert config.whisper.model == "mlx-community/whisper-custom"
 
     def test_input_language_specific_env(self, monkeypatch):
         """Test DICTATE_INPUT_LANGUAGE with specific language code."""
@@ -212,7 +212,7 @@ class TestConfigFromEnvExtended:
         
         monkeypatch.setenv("DICTATE_AUDIO_DEVICE", "3")
         monkeypatch.setenv("DICTATE_OUTPUT_MODE", "clipboard")
-        monkeypatch.setenv("DICTATE_WHISPER_MODEL", "custom/model")
+        monkeypatch.setenv("DICTATE_WHISPER_MODEL", "mlx-community/custom-model")
         monkeypatch.setenv("DICTATE_INPUT_LANGUAGE", "fr")
         monkeypatch.setenv("DICTATE_OUTPUT_LANGUAGE", "es")
         monkeypatch.setenv("DICTATE_VERBOSE", "false")
@@ -225,7 +225,7 @@ class TestConfigFromEnvExtended:
         
         assert config.audio.device_id == 3
         assert config.output_mode == OutputMode.CLIPBOARD
-        assert config.whisper.model == "custom/model"
+        assert config.whisper.model == "mlx-community/custom-model"
         assert config.whisper.language == "fr"
         assert config.llm.output_language == "es"
         assert config.verbose is False

@@ -23,7 +23,7 @@ os.environ.setdefault("DO_NOT_TRACK", "1")
 try:
     from dotenv import load_dotenv
 
-    env_path = Path.cwd() / ".env"
+    env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
 except ImportError:
@@ -55,7 +55,7 @@ def _run_update() -> int:
     # Kill any running instance
     print("Restarting Dictate...")
     try:
-        subprocess.run(["pkill", "-f", "dictate"], capture_output=True, check=False)
+        subprocess.run(["pkill", "-f", "dictate\\.menubar_main"], capture_output=True, check=False)
         time.sleep(0.5)  # Give it time to shut down
     except Exception:
         pass

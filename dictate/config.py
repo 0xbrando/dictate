@@ -213,7 +213,9 @@ class LLMConfig:
             endpoint = endpoint[8:]
         # Remove trailing slash and path
         endpoint = endpoint.split("/")[0]
-        return f"http://{endpoint}/v1/chat/completions"
+        host = endpoint.split(":")[0]
+        scheme = "http" if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") else "https"
+        return f"{scheme}://{endpoint}/v1/chat/completions"
 
     @property
     def model(self) -> str:
@@ -320,7 +322,14 @@ class Config:
             config.output_mode = OutputMode(mode.lower())
 
         if whisper_model := os.environ.get("DICTATE_WHISPER_MODEL"):
-            config.whisper.model = whisper_model
+            if whisper_model.startswith("mlx-community/"):
+                config.whisper.model = whisper_model
+            else:
+                import logging as _log
+                _log.getLogger(__name__).warning(
+                    "Ignoring DICTATE_WHISPER_MODEL=%s — only mlx-community/ repos allowed",
+                    whisper_model,
+                )
 
         if lang := os.environ.get("DICTATE_INPUT_LANGUAGE"):
             config.whisper.language = None if lang.lower() == "auto" else lang

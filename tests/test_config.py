@@ -73,7 +73,7 @@ class TestWhisperConfig:
         c = WhisperConfig()
         assert "whisper" in c.model.lower()
         assert c.language is None
-        assert c.engine == STTEngine.WHISPER
+        assert c.engine == STTEngine.PARAKEET
 
     def test_custom_engine(self):
         c = WhisperConfig(engine=STTEngine.PARAKEET, model="test-model")

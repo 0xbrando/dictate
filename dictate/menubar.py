@@ -1085,13 +1085,18 @@ class DictateMenuBarApp(rumps.App):
                 headers={"User-Agent": f"dictate-mlx/{DICTATE_VERSION}"}
             )
             
+            MAX_RESPONSE_BYTES = 1_048_576  # 1 MB cap
             with urlopen(req, timeout=10) as response:
-                data = json.loads(response.read().decode("utf-8"))
-            
-            latest_version = data.get("info", {}).get("version")
-            if not latest_version:
-                return
-            
+                raw = response.read(MAX_RESPONSE_BYTES)
+                if len(raw) >= MAX_RESPONSE_BYTES:
+                    return  # Response suspiciously large
+                data = json.loads(raw.decode("utf-8"))
+
+            import re as _re
+            latest_version = data.get("info", {}).get("version", "")
+            if not latest_version or not _re.match(r'^\d+\.\d+\.\d+$', latest_version):
+                return  # Missing or invalid version format
+
             current = parse_version(DICTATE_VERSION)
             latest = parse_version(latest_version)
             

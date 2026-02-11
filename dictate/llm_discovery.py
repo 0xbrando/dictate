@@ -37,10 +37,17 @@ def _normalize_endpoint(endpoint: str) -> str:
     return endpoint
 
 
+def _endpoint_url(endpoint: str, path: str) -> str:
+    """Build URL with http for localhost, https for remote."""
+    host = endpoint.split(":")[0]
+    scheme = "http" if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") else "https"
+    return f"{scheme}://{endpoint}{path}"
+
+
 def _try_openai_models(endpoint: str) -> DiscoveredModel | None:
     """Try to get model info from OpenAI-compatible /v1/models endpoint."""
     try:
-        url = f"http://{endpoint}/v1/models"
+        url = _endpoint_url(endpoint, "/v1/models")
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
             data = json.loads(resp.read())
@@ -78,7 +85,7 @@ def _try_openai_models(endpoint: str) -> DiscoveredModel | None:
 def _try_ollama_tags(endpoint: str) -> DiscoveredModel | None:
     """Try to get model info from Ollama /api/tags endpoint."""
     try:
-        url = f"http://{endpoint}/api/tags"
+        url = _endpoint_url(endpoint, "/api/tags")
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
             data = json.loads(resp.read())

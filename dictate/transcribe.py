@@ -302,7 +302,7 @@ class TextCleaner:
             self._model, self._tokenizer,
             prompt=prompt, max_tokens=max_tokens, sampler=sampler,
         )
-        logger.debug("LLM raw result: %r", result)
+        logger.debug("LLM raw result: %r", result[:100] if len(result) > 100 else result)
         return _postprocess(result.strip())
 
 
@@ -583,7 +583,7 @@ class TranscriptionPipeline:
 
         word_count = len(raw_text.split())
         logger.info("Transcribed in %.1fs (%d words)", t1 - t0, word_count)
-        logger.debug("Transcription text: %s", raw_text)
+        logger.debug("Transcription text: %s...", raw_text[:80] if len(raw_text) > 80 else raw_text)
 
         # Smart skip: if LLM is enabled but text already looks clean,
         # skip the expensive LLM round-trip. Translation mode always
@@ -622,7 +622,7 @@ class TranscriptionPipeline:
 
         if cleaned_text != raw_text:
             logger.info("Cleaned via %s in %.0fms (%d words)", route, (t3 - t2) * 1000, len(cleaned_text.split()))
-            logger.debug("Cleaned text: %s", cleaned_text)
+            logger.debug("Cleaned text: %s...", cleaned_text[:80] if len(cleaned_text) > 80 else cleaned_text)
         else:
             logger.info("No changes needed via %s (%.0fms)", route, (t3 - t2) * 1000)
 
