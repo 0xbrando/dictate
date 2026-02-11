@@ -76,6 +76,8 @@ Parakeet is the default for speed. Switch to Whisper from the menu bar if you ne
 
 ## Writing Styles
 
+<img src="assets/writing-style.png" alt="Writing styles menu" width="400">
+
 | Style | What it does |
 |-------|-------------|
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
@@ -83,6 +85,8 @@ Parakeet is the default for speed. Switch to Whisper from the menu bar if you ne
 | **Bullet Points** | Distills your dictation into concise key points |
 
 ## Quality Presets
+
+<img src="assets/quality.png" alt="Quality presets menu" width="400">
 
 | Preset | Speed | RAM | Best for |
 |--------|-------|-----|----------|
@@ -102,7 +106,8 @@ python -c "from mlx_lm import load; load('mlx-community/Qwen2.5-7B-Instruct-4bit
 
 ## Menu Bar
 
-<img src="assets/menubar.png" alt="Dictate menu bar" width="220" align="right">
+<img src="assets/menubar.png" alt="Dictate menu bar" width="180" align="right">
+<img src="assets/advanced.png" alt="Advanced settings" width="280" align="right">
 
 All settings accessible from the waveform icon in your menu bar:
 

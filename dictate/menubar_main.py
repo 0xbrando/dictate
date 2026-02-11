@@ -157,7 +157,7 @@ def main() -> int:
 {Y}/ /_/ / / /__/ /_/ /_/ / /_/  __/
 {Y}\\__,_/_/\\___/\\__/\\__,_/\\__/\\___/{R}
 
-  {W}{B}speak. it types.{R}  {D}v{__version__}{R}
+  {W}{B}speak. it types.{R}  {D}v{__version__} · 100% local{R}
 
   {D}Dictate is now running in your menu bar.
   You can close this terminal — it won't stop the app.{R}
