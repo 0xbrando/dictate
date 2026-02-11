@@ -1,6 +1,7 @@
 """Entry point for the menu bar app: python -m dictate.menubar_main"""
 
 import platform
+import subprocess
 import sys
 
 if platform.system() != "Darwin":
@@ -11,6 +12,7 @@ import fcntl
 import logging
 import os
 import signal
+import time
 from pathlib import Path
 
 # Disable HuggingFace telemetry — all inference is local
@@ -29,6 +31,50 @@ except ImportError:
 
 LOCK_FILE = Path.home() / "Library" / "Application Support" / "Dictate" / "dictate.lock"
 LOG_FILE = Path.home() / "Library" / "Logs" / "Dictate" / "dictate.log"
+
+
+def _run_update() -> int:
+    """Run pip install --upgrade and restart Dictate."""
+    print("Updating Dictate...")
+    
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "dictate-mlx"],
+            capture_output=False,
+            text=True,
+            check=False
+        )
+        if result.returncode != 0:
+            print(f"Update failed with exit code {result.returncode}")
+            return result.returncode
+        print("Update successful!")
+    except Exception as e:
+        print(f"Update failed: {e}")
+        return 1
+    
+    # Kill any running instance
+    print("Restarting Dictate...")
+    try:
+        subprocess.run(["pkill", "-f", "dictate"], capture_output=True, check=False)
+        time.sleep(0.5)  # Give it time to shut down
+    except Exception:
+        pass
+    
+    # Relaunch Dictate in background
+    try:
+        subprocess.Popen(
+            [sys.executable, "-m", "dictate.menubar_main"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True
+        )
+        print("Dictate restarted.")
+    except Exception as e:
+        print(f"Failed to restart: {e}")
+        print("Please run 'dictate' manually to start the app.")
+    
+    return 0
 
 
 def _acquire_singleton_lock() -> int | None:
@@ -92,6 +138,10 @@ def setup_logging() -> None:
 
 
 def main() -> int:
+    # Handle update command before anything else
+    if "update" in sys.argv or "--update" in sys.argv:
+        return _run_update()
+    
     # Daemonize before anything else — detach from terminal
     foreground = "--foreground" in sys.argv or "-f" in sys.argv
     if not foreground and sys.stdin is not None and hasattr(sys.stdin, "isatty") and sys.stdin.isatty():

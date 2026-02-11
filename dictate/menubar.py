@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import queue
+import subprocess
+import sys
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -38,6 +41,23 @@ from dictate.presets import (
     Preferences,
 )
 from dictate.transcribe import TranscriptionPipeline
+from dictate import __version__ as DICTATE_VERSION
+
+try:
+    from packaging.version import Version as parse_version
+except ImportError:
+    # Fallback for simple version comparison
+    def parse_version(v):
+        class SimpleVersion:
+            def __init__(self, version_str):
+                self.parts = [int(x) for x in version_str.split('.') if x.isdigit()]
+            def __gt__(self, other):
+                return self.parts > other.parts
+            def __eq__(self, other):
+                return self.parts == other.parts
+            def __ge__(self, other):
+                return self.parts >= other.parts
+        return SimpleVersion(v)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -870,6 +890,9 @@ class DictateMenuBarApp(rumps.App):
         init_thread = threading.Thread(target=self._init_pipeline, daemon=True)
         init_thread.start()
         self._start_keyboard_listener()
+        # Start update check in background after 10-second delay
+        update_check_thread = threading.Thread(target=self._check_for_update, daemon=True)
+        update_check_thread.start()
         self.run()
 
     def _init_pipeline(self) -> None:
@@ -1047,3 +1070,40 @@ class DictateMenuBarApp(rumps.App):
             cleanup_temp_files()
         except Exception:
             logger.debug("Icon temp file cleanup failed", exc_info=True)
+
+    def _check_for_update(self) -> None:
+        """Check PyPI for updates in background thread. Silently fails if no internet."""
+        # Wait 10 seconds so it doesn't slow startup
+        time.sleep(10)
+        
+        try:
+            from urllib.request import urlopen, Request
+            from urllib.error import URLError, HTTPError
+            
+            req = Request(
+                "https://pypi.org/pypi/dictate-mlx/json",
+                headers={"User-Agent": f"dictate-mlx/{DICTATE_VERSION}"}
+            )
+            
+            with urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            
+            latest_version = data.get("info", {}).get("version")
+            if not latest_version:
+                return
+            
+            current = parse_version(DICTATE_VERSION)
+            latest = parse_version(latest_version)
+            
+            if latest > current:
+                # Update available - notify and update status
+                notification_text = f"v{DICTATE_VERSION} → v{latest_version}. Run: pip install --upgrade dictate-mlx"
+                rumps.notification("Dictate update available!", "", notification_text)
+                self._post_ui("status", f"● Update available (v{latest_version})")
+                logger.info(f"Update available: {DICTATE_VERSION} → {latest_version}")
+        except (URLError, HTTPError, json.JSONDecodeError, ValueError):
+            # Silently fail if no internet or other errors
+            logger.debug("Update check failed (no internet or error)", exc_info=True)
+        except Exception:
+            # Catch-all to never crash
+            logger.debug("Update check unexpected error", exc_info=True)
