@@ -62,15 +62,75 @@ def is_model_cached(hf_repo: str) -> bool:
 
 def get_model_size_str(hf_repo: str) -> str:
     """Return approximate size string for known models.
-    
+
     Args:
         hf_repo: HuggingFace repository name
-        
+
     Returns:
         Size string like '1.8GB' or 'Unknown'
     """
     from dictate.model_download import get_model_size
     return get_model_size(hf_repo)
+
+
+def delete_cached_model(hf_repo: str) -> bool:
+    """Delete a cached model from the HuggingFace cache.
+
+    Args:
+        hf_repo: HuggingFace repository name (e.g., 'mlx-community/Qwen2.5-3B-Instruct-4bit')
+
+    Returns:
+        True if the model directory was found and deleted, False otherwise
+    """
+    from pathlib import Path
+    import shutil
+
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    model_dir = cache_dir / f"models--{hf_repo.replace('/', '--')}"
+
+    if model_dir.is_dir():
+        try:
+            shutil.rmtree(model_dir)
+            logger.info("Deleted cached model: %s", hf_repo)
+            return True
+        except Exception as e:
+            logger.error("Failed to delete model %s: %s", hf_repo, e)
+            return False
+    return False
+
+
+def get_cached_model_disk_size(hf_repo: str) -> str:
+    """Calculate the actual disk usage of a cached model.
+
+    Args:
+        hf_repo: HuggingFace repository name
+
+    Returns:
+        Human-readable size string like '1.8 GB' or 'Unknown'
+    """
+    from pathlib import Path
+
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    model_dir = cache_dir / f"models--{hf_repo.replace('/', '--')}"
+
+    if not model_dir.is_dir():
+        return "Unknown"
+
+    try:
+        total_size = 0
+        for path in model_dir.rglob("*"):
+            if path.is_file():
+                total_size += path.stat().st_size
+
+        # Convert to human-readable format
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if total_size < 1024:
+                return f"{total_size:.1f} {unit}" if unit != "B" else f"{total_size} {unit}"
+            total_size /= 1024
+        return f"{total_size:.1f} PB"
+    except Exception as e:
+        logger.error("Failed to calculate disk size for %s: %s", hf_repo, e)
+        return "Unknown"
 
 
 @dataclass

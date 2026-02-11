@@ -12,7 +12,15 @@ import numpy as np
 import rumps
 
 from dictate.audio import AudioCapture, list_input_devices, play_tone
-from dictate.config import Config, OutputMode, is_model_cached, WHISPER_MODEL, get_model_size_str
+from dictate.config import (
+    Config,
+    OutputMode,
+    WHISPER_MODEL,
+    delete_cached_model,
+    get_cached_model_disk_size,
+    get_model_size_str,
+    is_model_cached,
+)
 from dictate.model_download import download_model, is_download_in_progress
 from collections import deque
 from pathlib import Path
@@ -186,6 +194,7 @@ class DictateMenuBarApp(rumps.App):
         advanced_menu.add(self._build_output_lang_menu())
         advanced_menu.add(self._build_sound_menu())
         advanced_menu.add(self._build_endpoint_menu())
+        advanced_menu.add(self._build_manage_models_menu())
         advanced_menu.add(None)
         advanced_menu.add(self._build_llm_toggle())
         advanced_menu.add(self._build_dictionary_menu())
@@ -407,6 +416,106 @@ class DictateMenuBarApp(rumps.App):
                 rumps.MenuItem("Clear Recent", callback=self._on_clear_recent)
             )
         return recent_menu
+
+    def _build_manage_models_menu(self) -> rumps.MenuItem:
+        """Build the Manage Models submenu for viewing and deleting cached models."""
+        from dictate.config import LLMBackend
+
+        manage_menu = rumps.MenuItem("Manage Models")
+
+        # List all QUALITY_PRESETS models (skip API backend)
+        for i, preset in enumerate(QUALITY_PRESETS):
+            if preset.backend == LLMBackend.API:
+                continue
+
+            hf_repo = preset.llm_model.hf_repo
+            cached = is_model_cached(hf_repo)
+
+            if cached:
+                size = get_cached_model_disk_size(hf_repo)
+                label = f"{preset.label} ({size})"
+                item = rumps.MenuItem(label, callback=self._on_delete_model)
+                item._preset_index = i  # type: ignore[attr-defined]
+                item._preset_label = preset.label  # type: ignore[attr-defined]
+                item._hf_repo = hf_repo  # type: ignore[attr-defined]
+                item._size = size  # type: ignore[attr-defined]
+            else:
+                label = f"{preset.label} — Not downloaded"
+                item = rumps.MenuItem(label)
+                item.set_callback(None)
+
+            manage_menu.add(item)
+
+        manage_menu.add(None)  # separator
+
+        # Show cache location
+        cache_path = str(Path.home() / ".cache" / "huggingface" / "hub")
+        cache_info = rumps.MenuItem(f"Cache: {cache_path}")
+        cache_info.set_callback(None)
+        manage_menu.add(cache_info)
+
+        # Open in Finder
+        open_finder = rumps.MenuItem("Open in Finder", callback=self._on_open_cache_folder)
+        manage_menu.add(open_finder)
+
+        return manage_menu
+
+    def _on_delete_model(self, sender: rumps.MenuItem) -> None:
+        """Handle deletion of a cached model with confirmation."""
+        preset_label = getattr(sender, "_preset_label", "Unknown")
+        hf_repo = getattr(sender, "_hf_repo", "")
+        size = getattr(sender, "_size", "Unknown")
+
+        if not hf_repo:
+            return
+
+        # Show confirmation dialog
+        result = rumps.alert(
+            title="Delete Model",
+            message=f"Delete {preset_label}?\n\nThis will free {size}.",
+            ok="Delete",
+            cancel="Cancel",
+        )
+
+        if result == 1:  # Delete button clicked
+            if delete_cached_model(hf_repo):
+                self._post_ui("notify", f"Deleted {preset_label}")
+
+                # If the deleted model was the active preset, switch to first available cached model
+                current_preset_idx = self._prefs.quality_preset
+                current_preset = QUALITY_PRESETS[current_preset_idx]
+
+                if current_preset.backend != LLMBackend.API and current_preset.llm_model.hf_repo == hf_repo:
+                    # Find first available cached model
+                    for i, preset in enumerate(QUALITY_PRESETS):
+                        if preset.backend == LLMBackend.API:
+                            # Switch to API backend
+                            self._prefs.quality_preset = i
+                            self._prefs.save()
+                            self._apply_prefs()
+                            self._reload_pipeline()
+                            break
+                        elif is_model_cached(preset.llm_model.hf_repo):
+                            # Switch to this cached model
+                            self._prefs.quality_preset = i
+                            self._prefs.save()
+                            self._apply_prefs()
+                            self._reload_pipeline()
+                            break
+
+                self._post_ui("rebuild_menu")
+            else:
+                rumps.alert("Error", f"Failed to delete {preset_label}")
+
+    def _on_open_cache_folder(self, _sender: rumps.MenuItem) -> None:
+        """Open the HuggingFace cache folder in Finder."""
+        import subprocess
+
+        cache_path = Path.home() / ".cache" / "huggingface" / "hub"
+        if cache_path.exists():
+            subprocess.run(["open", str(cache_path)])
+        else:
+            rumps.alert("Cache Not Found", f"Cache directory does not exist:\n{cache_path}")
 
     # ── Menu callbacks ─────────────────────────────────────────────
 
