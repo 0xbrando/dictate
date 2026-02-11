@@ -127,7 +127,7 @@ class TestPreferences:
 
     def test_stt_engine_property(self):
         p = Preferences(stt_preset=0)
-        assert p.stt_engine == STTEngine.WHISPER
+        assert p.stt_engine == STTEngine.PARAKEET
 
     def test_stt_engine_clamps(self):
         p = Preferences(stt_preset=999)

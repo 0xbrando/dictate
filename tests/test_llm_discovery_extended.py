@@ -458,7 +458,7 @@ class TestGetDisplayNameExtended:
         with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
             result = get_display_name("localhost:11434")
 
-        assert result == "qwen3-coder:30b via localhost:11434"
+        assert result == "qwen3 coder"
 
     def test_available_model_with_custom_endpoint(self):
         """Test display name with custom endpoint."""
@@ -469,9 +469,7 @@ class TestGetDisplayNameExtended:
         with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
             result = get_display_name("192.168.1.100:8000")
 
-        assert "custom-model" in result
-        assert "192.168.1.100:8000" in result
-        assert "via" in result
+        assert result == "custom model"
 
     def test_unavailable_model_default_message(self):
         """Test message when no model is available."""
@@ -489,8 +487,7 @@ class TestGetDisplayNameExtended:
         with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
             result = get_display_name()
 
-        assert "default-model" in result
-        assert DEFAULT_ENDPOINT in result
+        assert result == "default model"
 
     def test_ollama_discovered_format(self):
         """Test format when Ollama model is discovered."""
@@ -507,7 +504,7 @@ class TestGetDisplayNameExtended:
         with patch("urllib.request.urlopen", mock_urlopen):
             result = get_display_name("localhost:11434")
 
-        assert result == "llama3.1:latest via localhost:11434"
+        assert result == "llama3.1"
 
 
 class TestDiscoveredModelDataclass:
