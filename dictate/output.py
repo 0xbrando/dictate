@@ -30,12 +30,17 @@ class ClipboardOutput(OutputHandler):
 class TyperOutput(OutputHandler):
     def __init__(self) -> None:
         self._controller = KeyboardController()
+        self._has_pasted = False
 
     def output(self, text: str) -> None:
         try:
             from pynput.keyboard import Key
 
+            # Add leading space between consecutive dictations
+            if self._has_pasted:
+                text = " " + text
             pyperclip.copy(text)
+            self._has_pasted = True
             time.sleep(TYPING_DELAY_SECONDS)
             self._controller.press(Key.cmd)
             self._controller.press('v')
