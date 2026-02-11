@@ -4,6 +4,10 @@ Push-to-talk voice dictation for macOS. Runs 100% on-device using Apple Silicon 
 
 Hold a key, speak, release — clean text appears wherever your cursor is.
 
+<p align="center">
+  <img src="assets/banner.png" alt="Dictate launch banner" width="500">
+</p>
+
 ## Install
 
 ```bash
@@ -97,6 +101,8 @@ python -c "from mlx_lm import load; load('mlx-community/Qwen2.5-7B-Instruct-4bit
 ```
 
 ## Menu Bar
+
+<img src="assets/menubar.png" alt="Dictate menu bar" width="220" align="right">
 
 All settings accessible from the waveform icon in your menu bar:
 
