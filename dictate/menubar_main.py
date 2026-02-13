@@ -136,6 +136,31 @@ def setup_logging() -> None:
 
 
 def main() -> int:
+    # Handle --version flag
+    if "--version" in sys.argv or "-V" in sys.argv:
+        from dictate import __version__
+        print(f"dictate {__version__}")
+        return 0
+
+    # Handle --help flag
+    if "--help" in sys.argv or "-h" in sys.argv:
+        from dictate import __version__
+        print(f"dictate v{__version__} — push-to-talk voice dictation for macOS")
+        print()
+        print("Usage: dictate [COMMAND] [OPTIONS]")
+        print()
+        print("Commands:")
+        print("  (default)       Launch Dictate in the menu bar")
+        print("  update          Update to the latest version")
+        print()
+        print("Options:")
+        print("  -f, --foreground  Run in foreground (show logs)")
+        print("  -V, --version     Show version and exit")
+        print("  -h, --help        Show this help and exit")
+        print()
+        print("https://github.com/0xbrando/dictate")
+        return 0
+
     # Handle update command before anything else
     if "update" in sys.argv or "--update" in sys.argv:
         return _run_update()
