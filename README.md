@@ -1,12 +1,41 @@
-# Dictate
+<p align="center">
+  <img src="assets/banner.png" alt="Dictate" width="500">
+</p>
 
-Push-to-talk voice dictation for macOS. Runs 100% on-device using Apple Silicon MLX models. No cloud, no API keys, no subscriptions.
-
-Hold a key, speak, release — clean text appears wherever your cursor is.
+<h3 align="center">Push-to-talk voice dictation that runs entirely on your Mac.<br>No cloud. No API keys. No subscriptions.</h3>
 
 <p align="center">
-  <img src="assets/banner.png" alt="Dictate launch banner" width="500">
+  <a href="https://pypi.org/project/dictate-mlx/"><img src="https://img.shields.io/pypi/v/dictate-mlx?color=blue&label=pip" alt="PyPI"></a>
+  <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/tests-828%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-97%25-brightgreen" alt="Coverage">
 </p>
+
+<p align="center">
+  <b>Hold a key → Speak → Release → Clean text appears wherever your cursor is.</b>
+</p>
+
+<!-- TODO: Replace with actual demo GIF once recorded -->
+<!-- <p align="center"><img src="assets/demo.gif" alt="Dictate demo" width="600"></p> -->
+
+---
+
+## Why Dictate?
+
+| | Dictate | SuperWhisper | Wispr Flow | VoiceInk | macOS Dictation |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Price** | **Free** | $8.49/mo | $12/mo | $39.99 | Free |
+| **Open source** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **100% local** | ✅ | ✅ | ❌ (cloud) | ✅ | Partial |
+| **LLM cleanup** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Translation** | ✅ 12 langs | ❌ | ❌ | ❌ | ❌ |
+| **Writing styles** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Push-to-talk** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Personal dictionary** | ✅ | ❌ | ✅ | ❌ | ✅ |
+
+Your M-series Mac has more than enough compute to do this locally. Why pay for it?
 
 ## Install
 
@@ -15,13 +44,14 @@ pip install dictate-mlx
 dictate
 ```
 
-That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running. Quit from the menu bar icon.
+That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running.
 
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 
-macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically in the background (~2-4GB total, cached in `~/.cache/huggingface/`).
+macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically (~2-4GB, cached in `~/.cache/huggingface/`).
 
-### Install from source
+<details>
+<summary><b>Install from source</b></summary>
 
 ```bash
 git clone https://github.com/0xbrando/dictate.git
@@ -31,31 +61,19 @@ source .venv/bin/activate
 pip install -e .
 dictate
 ```
+</details>
 
-## Requirements
+### Requirements
 
 - macOS with Apple Silicon (any M-series chip)
 - Python 3.11+
 - ~4GB RAM minimum, ~6GB recommended
 
-## How It Works
+## Features
 
-```
-Hold PTT → Speak → Release → Clean text pasted into active window
-```
+### 🎙️ Push-to-Talk
 
-Under the hood:
-
-1. **Push-to-talk** captures audio via the microphone
-2. **VAD** segments speech from silence
-3. **STT** transcribes locally (Whisper or Parakeet)
-4. **Smart skip** detects clean short phrases and skips cleanup entirely
-5. **LLM** fixes grammar, punctuation, and formatting
-6. **Auto-paste** puts the result wherever your cursor is
-
-Everything runs locally. Nothing leaves your machine.
-
-## Controls
+Hold a key, speak, release. Text appears wherever your cursor is.
 
 | Action | Key |
 |--------|-----|
@@ -63,20 +81,24 @@ Everything runs locally. Nothing leaves your machine.
 | Lock recording (hands-free) | Press Space while holding PTT |
 | Stop locked recording | Press PTT again |
 
-The PTT key is configurable from the menu bar: Left Control, Right Control, Right Command, or either Option key.
+The PTT key is configurable: Left Control, Right Control, Right Command, or either Option key.
 
-## STT Engines
+### 🧠 LLM Text Cleanup
 
-Both engines are included. Switch anytime from the menu bar.
+**The thing that sets Dictate apart.** Most dictation tools give you raw transcription. Dictate pipes through a local LLM that fixes grammar, adds punctuation, and formats properly.
+
+Short phrases (≤15 words) skip cleanup for instant speed. Longer dictation gets the full treatment.
+
+### 🗣️ Two STT Engines
+
+Both included. Switch anytime from the menu bar.
 
 | Engine | Speed | Languages | Notes |
 |--------|-------|-----------|-------|
-| **Parakeet TDT 0.6B** | ~50ms | English | Default. 4-8x faster than Whisper |
-| **Whisper Large V3 Turbo** | ~300ms | 99+ | Best for multilingual or non-English |
+| **Parakeet TDT 0.6B** | ~50ms | English | Default — 4-8x faster than Whisper |
+| **Whisper Large V3 Turbo** | ~300ms | 99+ | For multilingual or non-English input |
 
-Parakeet is the default for speed. Switch to Whisper from the menu bar if you need non-English STT.
-
-## Writing Styles
+### ✍️ Writing Styles
 
 <img src="assets/writing-style.png" alt="Writing styles menu" width="400">
 
@@ -84,29 +106,27 @@ Parakeet is the default for speed. Switch to Whisper from the menu bar if you ne
 |-------|-------------|
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
 | **Formal** | Rewrites in a professional tone |
-| **Bullet Points** | Distills your dictation into concise key points |
+| **Bullet Points** | Distills dictation into concise key points |
 
-## Quality Presets
+### 🌐 Real-Time Translation
+
+Speak in one language, get output in another. 12 languages supported: English, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Russian, Arabic, Hindi.
+
+### ⚡ Quality Presets
 
 <img src="assets/quality.png" alt="Quality presets menu" width="400">
 
 | Preset | Speed | RAM | Best for |
 |--------|-------|-----|----------|
-| API Server | varies | 0 | Use an external LLM server (LM Studio, Ollama, etc.) |
-| Speedy (1.5B) | ~120ms | 1.0GB | Quick fixes, great for any chip |
-| Fast (3B) | ~250ms | 1.8GB | Quick cleanup, everyday use |
-| Balanced (7B) | ~350ms | 4.2GB | Longer dictation, formal rewriting |
-| Quality (14B) | ~500ms | 8.8GB | Best accuracy for bullet points and rewrites |
+| API Server | varies | 0 | Use your own LLM server (LM Studio, Ollama, etc.) |
+| Speedy (1.5B) | ~120ms | 1.0GB | Quick fixes, any M-chip |
+| Fast (3B) | ~250ms | 1.8GB | Everyday use |
+| Balanced (7B) | ~350ms | 4.2GB | Longer dictation, formal rewrites |
+| Quality (14B) | ~500ms | 8.8GB | Best accuracy |
 
-Smart routing auto-routes based on message length: short phrases go to the fast local model, longer dictation goes to your API server.
+Smart routing auto-routes by message length: short phrases → fast local model, longer dictation → larger model or API server.
 
-Times measured on M3 Ultra. The app picks the best default for your chip — Ultra/Max get 3B, everything else gets 1.5B.
-
-The Quality menu only shows models you've downloaded. To add a larger model:
-
-```bash
-python -c "from mlx_lm import load; load('mlx-community/Qwen2.5-7B-Instruct-4bit')"
-```
+Times on M3 Ultra. The app picks the best default for your chip.
 
 ## Menu Bar
 
@@ -115,25 +135,20 @@ python -c "from mlx_lm import load; load('mlx-community/Qwen2.5-7B-Instruct-4bit
   <img src="assets/advanced.png" alt="Advanced settings" width="250">
 </p>
 
-All settings accessible from the waveform icon in your menu bar:
+Everything accessible from the waveform icon:
 
-**Main menu:**
-- **Writing Style** — Clean Up, Formal, or Bullet Points
+- **Writing Style** — Clean Up, Formal, Bullet Points
 - **Quality** — model size (shows only downloaded models)
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
-
-**Advanced settings:**
 - **STT Engine** — Whisper or Parakeet
 - **PTT Key** — choose your push-to-talk modifier
-- **Languages** — input and output language (12 languages for translation)
-- **Sounds** — 6 tones or silent
-- **LLM Endpoint** — configure API server
-- **LLM Cleanup** — toggle on/off
+- **Languages** — input and output language
+- **Sounds** — 6 notification tones or silent
 - **Personal Dictionary** — names, brands, technical terms always spelled correctly
 - **Launch at Login** — auto-start on boot
 
-## API Server Setup
+## API Server
 
 If you run a local LLM server, Dictate can use it instead of loading its own model — zero additional RAM:
 
@@ -143,13 +158,12 @@ DICTATE_LLM_BACKEND=api DICTATE_LLM_API_URL=http://localhost:8005/v1/chat/comple
 
 Works with any OpenAI-compatible server: [vllm-mlx](https://github.com/vllm-project/vllm-mlx), [LM Studio](https://lmstudio.ai), [Ollama](https://ollama.com).
 
-### Smart Routing
-
-The Smart preset auto-routes based on message length:
-- **Short** (15 words or fewer) → fast local model (~120ms)
-- **Long** (16+ words) → your API server for higher quality
+The **Smart** preset auto-routes by length: short phrases → fast local model (~120ms), longer dictation → your API server.
 
 ## Environment Variables
+
+<details>
+<summary><b>All environment variables</b></summary>
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -163,30 +177,39 @@ The Smart preset auto-routes based on message length:
 | `DICTATE_LLM_API_URL` | OpenAI-compatible endpoint | `http://localhost:8005/v1/chat/completions` |
 | `DICTATE_ALLOW_REMOTE_API` | Allow non-localhost API URLs | unset |
 
+</details>
+
 ## Agent Integration
 
 Dictate works well as a voice input layer for AI assistants and agent frameworks. If you're building with tools like Claude Code, OpenClaw, or similar — Dictate gives your setup a local, private voice interface with zero cloud dependency.
 
 ## Debugging
 
-Run in the foreground to see logs:
-
 ```bash
+# Run in foreground with logs
 dictate --foreground
-```
 
-Or check the background log:
-
-```bash
+# Check background logs
 tail -f ~/Library/Logs/Dictate/dictate.log
 ```
 
 ## Security
 
 - All processing is local. Audio and text never leave your machine.
-- LLM endpoints are restricted to localhost by default. Set `DICTATE_ALLOW_REMOTE_API=1` to override.
-- Preferences stored with `0o600` permissions (owner-only read/write).
+- LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
+- Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
+- 828 tests, 97% code coverage.
+
+## Contributing
+
+Issues and PRs welcome. Run the test suite before submitting:
+
+```bash
+python -m pytest tests/ -q
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
