@@ -53,7 +53,10 @@ class TyperOutput(OutputHandler):
                 self._controller.type(text)
             except Exception as type_e:
                 logger.error("Failed to type text directly: %s", type_e)
-                raise RuntimeError(f"Failed to output text (clipboard unavailable and typing failed): {type_e}") from type_e
+                raise RuntimeError(
+                    "Could not paste or type text. Check clipboard access in "
+                    "System Settings → Privacy & Security → Accessibility."
+                ) from type_e
         except Exception as e:
             logger.error("Failed to paste text: %s", e)
             raise

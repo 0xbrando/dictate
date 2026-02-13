@@ -95,6 +95,7 @@ class DictateMenuBarApp(rumps.App):
 
         self._audio: AudioCapture | None = None
         self._pipeline: TranscriptionPipeline | None = None
+        self._pipeline_lock = threading.Lock()
         self._output = create_output_handler(OutputMode.TYPE)
         self._aggregator = TextAggregator()
         self._worker: threading.Thread | None = None
@@ -108,6 +109,7 @@ class DictateMenuBarApp(rumps.App):
         self._recent: list[str] = []
         self._active_downloads: dict[str, threading.Thread] = {}
         self._download_progress: dict[str, float] = {}
+        self._reload_in_progress = False
         self._last_device_check: float = 0.0
         self._known_device_ids: set[int] = {d.index for d in list_input_devices()}
         whisper_cached = is_model_cached(WHISPER_MODEL)
@@ -863,24 +865,32 @@ class DictateMenuBarApp(rumps.App):
     # ── Pipeline management ────────────────────────────────────────
 
     def _reload_pipeline(self) -> None:
+        if self._reload_in_progress:
+            logger.info("Pipeline reload already in progress, skipping")
+            return
+        self._reload_in_progress = True
         self._post_ui("icon", "idle")
         self._post_ui("status", "Loading models...")
 
         def _load() -> None:
             try:
-                self._pipeline = TranscriptionPipeline(
+                new_pipeline = TranscriptionPipeline(
                     whisper_config=self._config.whisper,
                     llm_config=self._config.llm,
                 )
-                self._pipeline.set_sample_rate(self._config.audio.sample_rate)
-                self._pipeline.preload_models(
+                new_pipeline.set_sample_rate(self._config.audio.sample_rate)
+                new_pipeline.preload_models(
                     on_progress=lambda msg: self._post_ui("status", msg)
                 )
+                with self._pipeline_lock:
+                    self._pipeline = new_pipeline
                 self._post_ui("status", "Ready")
                 self._post_ui("rebuild_menu")
             except Exception:
                 logger.exception("Failed to reload pipeline")
                 self._post_ui("status", "Model load failed")
+            finally:
+                self._reload_in_progress = False
 
         threading.Thread(target=_load, daemon=True).start()
 
@@ -897,17 +907,22 @@ class DictateMenuBarApp(rumps.App):
 
     def _init_pipeline(self) -> None:
         try:
-            self._pipeline = TranscriptionPipeline(
+            new_pipeline = TranscriptionPipeline(
                 whisper_config=self._config.whisper,
                 llm_config=self._config.llm,
             )
-            self._pipeline.set_sample_rate(self._config.audio.sample_rate)
-            self._pipeline.preload_models(
+            new_pipeline.set_sample_rate(self._config.audio.sample_rate)
+            new_pipeline.preload_models(
                 on_progress=lambda msg: self._post_ui("status", msg)
             )
+            with self._pipeline_lock:
+                self._pipeline = new_pipeline
             logger.info("Pipeline ready")
             self._post_ui("status", "Ready")
             self._post_ui("rebuild_menu")
+        except ImportError as e:
+            logger.error("Missing dependency: %s", e)
+            self._post_ui("status", f"Missing package: {e.name or e}")
         except Exception:
             logger.exception("Failed to initialize pipeline")
             self._post_ui("status", "Model load failed")
@@ -1020,21 +1035,26 @@ class DictateMenuBarApp(rumps.App):
             self._process_chunk(audio)
 
     def _process_chunk(self, audio: NDArray[np.int16]) -> None:
-        if self._pipeline is None:
+        with self._pipeline_lock:
+            pipeline = self._pipeline
+        if pipeline is None:
             return
         try:
-            text = self._pipeline.process(audio)
+            text = pipeline.process(audio)
             if text:
                 self._emit_output(text)
-                if self._pipeline.last_cleanup_failed:
+                if pipeline.last_cleanup_failed:
                     self._post_ui("status", "Ready (cleanup skipped)")
                 else:
                     self._post_ui("status", "Ready")
             else:
                 self._post_ui("status", "Ready")
+        except RuntimeError as e:
+            logger.error("Processing error: %s", e)
+            self._post_ui("status", f"Error: {e}")
         except Exception:
             logger.exception("Processing error")
-            self._post_ui("status", "Processing error")
+            self._post_ui("status", "Processing error — try again")
 
     def _emit_output(self, text: str) -> None:
         self._aggregator.append(text)

@@ -63,7 +63,13 @@ class WhisperTranscriber:
 
         print(f"   Whisper: {self._config.model}...", end=" ", flush=True)
 
-        import mlx_whisper
+        try:
+            import mlx_whisper
+        except ImportError:
+            raise ImportError(
+                "mlx-whisper is required for the Whisper engine. "
+                "Install it with: pip install mlx-whisper"
+            )
         import numpy as np
         silent_audio = np.zeros(16000, dtype=np.int16)
 

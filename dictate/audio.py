@@ -355,15 +355,19 @@ class AudioCapture:
                         self._vad.in_speech = False
 
     def _finalize_chunk(self, force: bool) -> None:
-        if not self._vad.current_chunk:
-            return
+        with self._lock:
+            if not self._vad.current_chunk:
+                return
+            # Snapshot and clear under lock to prevent callback thread from
+            # appending to the chunk list while we're concatenating.
+            chunks = self._vad.current_chunk
+            self._vad.current_chunk = []
 
-        chunk = np.concatenate(self._vad.current_chunk).astype(np.float32)
+        chunk = np.concatenate(chunks).astype(np.float32)
         chunk = np.clip(chunk, AUDIO_CLIP_MIN, AUDIO_CLIP_MAX)
         chunk_i16 = (chunk * INT16_MAX).astype(np.int16)
 
         duration_s = len(chunk_i16) / self._audio_config.sample_rate
-        self._vad.current_chunk = []
 
         if duration_s < MIN_CHUNK_DURATION_SECONDS and not force:
             logger.debug("Skipping short chunk (%.2fs)", duration_s)
