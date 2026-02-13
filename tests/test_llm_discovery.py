@@ -259,7 +259,7 @@ class TestGetDisplayName:
         with patch("urllib.request.urlopen", mock_urlopen):
             result = get_display_name("localhost:11434")
 
-        assert "qwen3" in result.lower()
+        assert result == "qwen3 coder"
 
     def test_no_model_found(self):
         with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
@@ -278,7 +278,7 @@ class TestGetDisplayName:
         with patch("urllib.request.urlopen", mock_urlopen):
             result = get_display_name()  # Uses default endpoint
 
-        assert "test" in result.lower()
+        assert result == "test model"
 
 
 class TestDiscoveredModel:

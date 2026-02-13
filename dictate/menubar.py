@@ -486,6 +486,8 @@ class DictateMenuBarApp(rumps.App):
 
     def _on_delete_model(self, sender: rumps.MenuItem) -> None:
         """Handle deletion of a cached model with confirmation."""
+        from dictate.config import LLMBackend
+
         preset_label = getattr(sender, "_preset_label", "Unknown")
         hf_repo = getattr(sender, "_hf_repo", "")
         size = getattr(sender, "_size", "Unknown")
