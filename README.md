@@ -204,7 +204,7 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
 - Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
-- 828 tests, 97% code coverage.
+- 871 tests, 97% code coverage.
 
 ## Contributing
 
