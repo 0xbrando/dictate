@@ -15,11 +15,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Tracks dictations, words, characters, audio duration
   - Writing style breakdown with bar chart visualization
   - Stats automatically recorded during dictation
+- `dictate doctor` — diagnostic tool for troubleshooting
+  - Checks macOS version, Apple Silicon, Python, microphone, models,
+    disk space, accessibility, Parakeet, LLM endpoint, duplicate instances
+  - Clear pass/warn/fail output with actionable suggestions
+- `dictate status` — system info and model cache overview
 - Updated `--help` with all commands and config examples
 - CLI Commands section in README with key reference table
 
 ### Fixed
 - Test regex mismatch for output fallback error message
+- NameError crash when running `dictate status` (function was missing)
 
 ## [2.4.1] - 2026-02-10
 
