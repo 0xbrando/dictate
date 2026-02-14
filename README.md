@@ -107,11 +107,11 @@ Both included. Switch anytime from the menu bar.
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
 | **Formal** | Rewrites in a professional tone |
 | **Bullet Points** | Distills dictation into concise key points |
-| **Email** | Formats as a professional email |
-| **Slack/Chat** | Casual, concise messaging style |
-| **Technical** | Preserves code terms, formats for documentation |
-| **Tweet** | Compresses to ≤280 characters |
-| **Raw** | No LLM processing — pure transcription |
+| **Email** | Formats as a professional email with greeting and sign-off |
+| **Slack / Chat** | Casual, concise, chat-friendly messages |
+| **Technical** | Precise technical documentation style |
+| **Tweet** | Condenses to under 280 characters |
+| **Raw** | No LLM processing — exact transcription output |
 
 8 writing styles — more than any macOS dictation tool.
 
