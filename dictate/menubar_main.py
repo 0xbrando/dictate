@@ -33,6 +33,224 @@ LOCK_FILE = Path.home() / "Library" / "Application Support" / "Dictate" / "dicta
 LOG_FILE = Path.home() / "Library" / "Logs" / "Dictate" / "dictate.log"
 
 
+def _config_command(args: list[str]) -> int:
+    """Handle 'dictate config' subcommands.
+
+    Usage:
+        dictate config              Show all current settings
+        dictate config show         Show all current settings
+        dictate config set KEY VAL  Set a preference
+        dictate config reset        Reset all preferences to defaults
+        dictate config path         Show config file path
+    """
+    from dictate.presets import (
+        Preferences, QUALITY_PRESETS, STT_PRESETS, WRITING_STYLES,
+        INPUT_LANGUAGES, OUTPUT_LANGUAGES, PTT_KEYS, COMMAND_KEYS,
+        SOUND_PRESETS, PREFS_DIR, PREFS_FILE,
+    )
+
+    W = "\033[97m"   # bright white
+    G = "\033[32m"   # green
+    Y = "\033[33m"   # yellow
+    R = "\033[31m"   # red
+    D = "\033[2m"    # dim
+    B = "\033[1m"    # bold
+    N = "\033[0m"    # reset
+
+    # Valid config keys and their accepted values
+    CONFIG_KEYS: dict[str, dict] = {
+        "writing_style": {
+            "description": "Writing style for LLM cleanup",
+            "values": [s[0] for s in WRITING_STYLES],
+            "type": "choice",
+        },
+        "quality": {
+            "description": "Quality preset (LLM model size)",
+            "values": list(range(len(QUALITY_PRESETS))),
+            "aliases": {
+                "api": 0, "speedy": 1, "fast": 2, "balanced": 3, "quality": 4,
+            },
+            "type": "int_or_alias",
+        },
+        "stt": {
+            "description": "Speech-to-text engine",
+            "values": list(range(len(STT_PRESETS))),
+            "aliases": {p.engine.value: i for i, p in enumerate(STT_PRESETS)},
+            "type": "int_or_alias",
+        },
+        "input_language": {
+            "description": "Input language for transcription",
+            "values": [lang[0] for lang in INPUT_LANGUAGES],
+            "type": "choice",
+        },
+        "output_language": {
+            "description": "Output language (translation target)",
+            "values": [lang[0] for lang in OUTPUT_LANGUAGES],
+            "type": "choice",
+        },
+        "ptt_key": {
+            "description": "Push-to-talk key",
+            "values": [k[0] for k in PTT_KEYS],
+            "type": "choice",
+        },
+        "command_key": {
+            "description": "Command key (lock recording)",
+            "values": [k[0] for k in COMMAND_KEYS],
+            "type": "choice",
+        },
+        "llm_cleanup": {
+            "description": "Enable LLM text cleanup",
+            "values": ["on", "off", "true", "false", "1", "0"],
+            "type": "bool",
+        },
+        "sound": {
+            "description": "Sound feedback preset",
+            "values": list(range(len(SOUND_PRESETS))),
+            "aliases": {p.style: i for i, p in enumerate(SOUND_PRESETS)},
+            "type": "int_or_alias",
+        },
+        "llm_endpoint": {
+            "description": "LLM API endpoint (host:port)",
+            "type": "string",
+        },
+        "advanced_mode": {
+            "description": "Enable advanced mode in menu bar",
+            "values": ["on", "off", "true", "false", "1", "0"],
+            "type": "bool",
+        },
+    }
+
+    subcmd = args[0] if args else "show"
+
+    if subcmd == "path":
+        print(str(PREFS_FILE))
+        return 0
+
+    if subcmd == "reset":
+        prefs = Preferences()
+        prefs.save()
+        print(f"{G}✓{N} Preferences reset to defaults")
+        return 0
+
+    if subcmd == "set":
+        if len(args) < 3:
+            print(f"{R}Usage:{N} dictate config set KEY VALUE", file=sys.stderr)
+            print(f"\n{W}Available keys:{N}")
+            for key, info in CONFIG_KEYS.items():
+                desc = info["description"]
+                if info["type"] == "choice":
+                    vals = ", ".join(str(v) for v in info["values"])
+                    print(f"  {Y}{key}{N}  {D}{desc}{N}  [{vals}]")
+                elif info["type"] == "int_or_alias":
+                    aliases = info.get("aliases", {})
+                    vals = ", ".join(str(v) for v in info["values"])
+                    alias_str = ", ".join(aliases.keys()) if aliases else ""
+                    print(f"  {Y}{key}{N}  {D}{desc}{N}  [{vals}] or [{alias_str}]")
+                elif info["type"] == "bool":
+                    print(f"  {Y}{key}{N}  {D}{desc}{N}  [on/off]")
+                else:
+                    print(f"  {Y}{key}{N}  {D}{desc}{N}")
+            return 1
+
+        key = args[1]
+        value = args[2]
+
+        if key not in CONFIG_KEYS:
+            print(f"{R}Unknown key:{N} {key}", file=sys.stderr)
+            print(f"{D}Available keys: {', '.join(CONFIG_KEYS.keys())}{N}", file=sys.stderr)
+            return 1
+
+        prefs = Preferences.load()
+        info = CONFIG_KEYS[key]
+
+        # Resolve the value based on type
+        if info["type"] == "choice":
+            if value not in info["values"]:
+                print(f"{R}Invalid value:{N} {value}", file=sys.stderr)
+                print(f"{D}Valid values: {', '.join(str(v) for v in info['values'])}{N}", file=sys.stderr)
+                return 1
+            resolved = value
+
+        elif info["type"] == "int_or_alias":
+            aliases = info.get("aliases", {})
+            if value in aliases:
+                resolved = aliases[value]
+            elif value.isdigit() and int(value) in info["values"]:
+                resolved = int(value)
+            else:
+                valid = list(str(v) for v in info["values"]) + list(aliases.keys())
+                print(f"{R}Invalid value:{N} {value}", file=sys.stderr)
+                print(f"{D}Valid values: {', '.join(valid)}{N}", file=sys.stderr)
+                return 1
+
+        elif info["type"] == "bool":
+            if value.lower() in ("on", "true", "1"):
+                resolved = True
+            elif value.lower() in ("off", "false", "0"):
+                resolved = False
+            else:
+                print(f"{R}Invalid value:{N} {value}. Use on/off", file=sys.stderr)
+                return 1
+
+        elif info["type"] == "string":
+            resolved = value
+
+        else:
+            resolved = value
+
+        # Map config key to Preferences field name
+        field_map = {
+            "quality": "quality_preset",
+            "stt": "stt_preset",
+            "sound": "sound_preset",
+        }
+        field_name = field_map.get(key, key)
+        setattr(prefs, field_name, resolved)
+        prefs.save()
+        print(f"{G}✓{N} Set {W}{key}{N} = {Y}{value}{N}")
+        return 0
+
+    # Default: show config
+    if subcmd not in ("show", "list", "get"):
+        print(f"{R}Unknown subcommand:{N} {subcmd}", file=sys.stderr)
+        print(f"{D}Usage: dictate config [show|set|reset|path]{N}", file=sys.stderr)
+        return 1
+
+    if not PREFS_FILE.exists():
+        print(f"{D}No preferences file. Using defaults.{N}")
+        prefs = Preferences()
+    else:
+        prefs = Preferences.load()
+
+    # Display current config
+    quality = QUALITY_PRESETS[prefs.quality_preset] if prefs.quality_preset < len(QUALITY_PRESETS) else None
+    stt = STT_PRESETS[prefs.stt_preset] if prefs.stt_preset < len(STT_PRESETS) else None
+    style_name = next((s[1] for s in WRITING_STYLES if s[0] == prefs.writing_style), prefs.writing_style)
+    sound = SOUND_PRESETS[prefs.sound_preset] if prefs.sound_preset < len(SOUND_PRESETS) else None
+    ptt_label = next((k[1] for k in PTT_KEYS if k[0] == prefs.ptt_key), prefs.ptt_key)
+    cmd_label = next((k[1] for k in COMMAND_KEYS if k[0] == prefs.command_key), prefs.command_key)
+    in_lang = next((l[1] for l in INPUT_LANGUAGES if l[0] == prefs.input_language), prefs.input_language)
+    out_lang = next((l[1] for l in OUTPUT_LANGUAGES if l[0] == prefs.output_language), prefs.output_language)
+
+    print(f"\n{W}{B}Dictate Config{N}\n")
+    print(f"  {W}writing_style{N}   {Y}{prefs.writing_style}{N}  {D}({style_name}){N}")
+    print(f"  {W}quality{N}         {Y}{prefs.quality_preset}{N}  {D}({quality.label if quality else 'Unknown'}){N}")
+    print(f"  {W}stt{N}             {Y}{prefs.stt_preset}{N}  {D}({stt.label if stt else 'Unknown'}){N}")
+    print(f"  {W}input_language{N}  {Y}{prefs.input_language}{N}  {D}({in_lang}){N}")
+    print(f"  {W}output_language{N} {Y}{prefs.output_language}{N}  {D}({out_lang}){N}")
+    print(f"  {W}ptt_key{N}         {Y}{prefs.ptt_key}{N}  {D}({ptt_label}){N}")
+    print(f"  {W}command_key{N}     {Y}{prefs.command_key}{N}  {D}({cmd_label}){N}")
+    print(f"  {W}llm_cleanup{N}     {Y}{'on' if prefs.llm_cleanup else 'off'}{N}")
+    print(f"  {W}sound{N}           {Y}{prefs.sound_preset}{N}  {D}({sound.label if sound else 'Unknown'}){N}")
+    print(f"  {W}llm_endpoint{N}    {Y}{prefs.llm_endpoint}{N}")
+    print(f"  {W}advanced_mode{N}   {Y}{'on' if prefs.advanced_mode else 'off'}{N}")
+    print()
+    print(f"  {D}Config file: {PREFS_FILE}{N}")
+    print(f"  {D}Use 'dictate config set KEY VALUE' to change a setting{N}")
+    print()
+    return 0
+
+
 def _run_update() -> int:
     """Run pip install --upgrade and restart Dictate."""
     print("Updating Dictate...")
@@ -151,6 +369,8 @@ def main() -> int:
         print()
         print("Commands:")
         print("  (default)       Launch Dictate in the menu bar")
+        print("  config          View and modify preferences")
+        print("  status          Show system info and model status")
         print("  update          Update to the latest version")
         print()
         print("Options:")
@@ -158,10 +378,26 @@ def main() -> int:
         print("  -V, --version     Show version and exit")
         print("  -h, --help        Show this help and exit")
         print()
+        print("Config examples:")
+        print("  dictate config                    Show current settings")
+        print("  dictate config set writing_style email")
+        print("  dictate config set quality speedy")
+        print("  dictate config set ptt_key cmd_r")
+        print("  dictate config reset              Reset to defaults")
+        print()
         print("https://github.com/0xbrando/dictate")
         return 0
 
-    # Handle update command before anything else
+    # Handle config command
+    if "config" in sys.argv:
+        config_idx = sys.argv.index("config")
+        return _config_command(sys.argv[config_idx + 1:])
+
+    # Handle status command
+    if "status" in sys.argv:
+        return _show_status()
+
+    # Handle update command
     if "update" in sys.argv or "--update" in sys.argv:
         return _run_update()
     
