@@ -20,10 +20,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     disk space, accessibility, Parakeet, LLM endpoint, duplicate instances
   - Clear pass/warn/fail output with actionable suggestions
 - `dictate status` — system info and model cache overview
-- Updated `--help` with all commands and config examples
-- CLI Commands section in README with key reference table
-- Shell completions for bash and zsh (tab-complete commands, config keys, values)
 - `dictate devices` — list available audio input devices with default marker
+- `dictate update --check` — check for updates without installing
+- `dictate update --github` — force install from GitHub repository
+- Shell completions for bash and zsh (tab-complete commands, config keys, values)
+- 5 new writing styles: Email, Slack/Chat, Technical, Tweet, Raw (total: 8)
+- Updated `--help` with all commands, update flags, and config examples
+- CLI Commands section in README with key reference table
+
+### Changed
+- `dictate update` now tries PyPI first, falls back to GitHub if unavailable
+- Update command shows colored output with version comparison (before → after)
 
 ### Fixed
 - Test regex mismatch for output fallback error message
