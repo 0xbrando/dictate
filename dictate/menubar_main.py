@@ -558,6 +558,45 @@ def _run_doctor() -> int:
     return 1 if issues else 0
 
 
+def _list_devices() -> int:
+    """List available audio input devices."""
+    W = "\033[97m"
+    G = "\033[32m"
+    Y = "\033[33m"
+    D = "\033[2m"
+    B = "\033[1m"
+    N = "\033[0m"
+
+    print(f"\n{W}{B}Audio Input Devices{N}\n")
+
+    try:
+        from dictate.audio import list_input_devices
+        devices = list_input_devices()
+    except ImportError:
+        print(f"  {Y}⚠{N} sounddevice not installed")
+        return 1
+    except Exception as e:
+        print(f"  {Y}⚠{N} Could not query devices: {e}")
+        return 1
+
+    if not devices:
+        print(f"  {D}No input devices found.{N}")
+        print(f"  {D}Check System Settings > Sound > Input.{N}")
+        return 1
+
+    for dev in devices:
+        if dev.is_default:
+            print(f"  {G}●{N} [{W}{dev.index}{N}] {dev.name}  {G}← default{N}")
+        else:
+            print(f"  {D}○{N} [{W}{dev.index}{N}] {dev.name}")
+
+    print()
+    print(f"  {D}Set input device: dictate config set device_id <NUMBER>{N}")
+    print(f"  {D}Reset to default: dictate config set device_id auto{N}")
+    print()
+    return 0
+
+
 def _run_update() -> int:
     """Run pip install --upgrade and restart Dictate."""
     print("Updating Dictate...")
@@ -680,6 +719,7 @@ def main() -> int:
         print("  stats           Show usage statistics")
         print("  status          Show system info and model status")
         print("  doctor          Run diagnostic checks")
+        print("  devices         List audio input devices")
         print("  update          Update to the latest version")
         print()
         print("Options:")
@@ -713,6 +753,10 @@ def main() -> int:
     # Handle doctor command
     if "doctor" in sys.argv:
         return _run_doctor()
+
+    # Handle devices command
+    if "devices" in sys.argv:
+        return _list_devices()
 
     # Handle update command
     if "update" in sys.argv or "--update" in sys.argv:

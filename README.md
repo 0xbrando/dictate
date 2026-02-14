@@ -203,6 +203,7 @@ dictate config reset # Reset to defaults
 dictate stats        # Show usage statistics
 dictate status       # System info and model status
 dictate doctor       # Run diagnostic checks (troubleshooting)
+dictate devices      # List audio input devices
 dictate update       # Update to latest version
 dictate -f           # Run in foreground (debug)
 dictate -V           # Show version
@@ -253,7 +254,7 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
 - Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
-- 983 tests, 97% code coverage.
+- 994 tests, 97% code coverage.
 
 ## Contributing
 

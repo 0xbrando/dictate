@@ -114,6 +114,7 @@ _dictate() {
         'stats:Show usage statistics'
         'status:Show system info and model status'
         'doctor:Run diagnostic checks'
+        'devices:List audio input devices'
         'update:Update to the latest version'
     )
 

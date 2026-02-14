@@ -23,6 +23,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Updated `--help` with all commands and config examples
 - CLI Commands section in README with key reference table
 - Shell completions for bash and zsh (tab-complete commands, config keys, values)
+- `dictate devices` — list available audio input devices with default marker
 
 ### Fixed
 - Test regex mismatch for output fallback error message

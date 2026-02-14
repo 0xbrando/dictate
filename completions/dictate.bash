@@ -6,7 +6,7 @@ _dictate_completions() {
     local cur prev words cword
     _init_completion || return
 
-    local commands="config stats status doctor update"
+    local commands="config stats status doctor devices update"
     local config_subcmds="show set reset path"
     local config_keys="writing_style quality stt input_language output_language ptt_key command_key llm_cleanup sound llm_endpoint advanced_mode"
     local writing_styles="clean formal bullets email slack technical tweet raw"
