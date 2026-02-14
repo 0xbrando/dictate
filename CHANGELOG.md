@@ -5,6 +5,22 @@ All notable changes to Dictate are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `dictate config` CLI — view, set, and reset preferences from the command line
+  - 11 configurable keys with validation and aliases (e.g., `quality speedy`)
+  - Show, set, reset, and path subcommands
+- `dictate stats` CLI — usage statistics dashboard
+  - Tracks dictations, words, characters, audio duration
+  - Writing style breakdown with bar chart visualization
+  - Stats automatically recorded during dictation
+- Updated `--help` with all commands and config examples
+- CLI Commands section in README with key reference table
+
+### Fixed
+- Test regex mismatch for output fallback error message
+
 ## [2.4.1] - 2026-02-10
 
 ### Fixed
