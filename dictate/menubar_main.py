@@ -597,46 +597,138 @@ def _list_devices() -> int:
     return 0
 
 
-def _run_update() -> int:
-    """Run pip install --upgrade and restart Dictate."""
-    print("Updating Dictate...")
-    
+def _run_update(check_only: bool = False, from_github: bool = False) -> int:
+    """Update Dictate to the latest version.
+
+    Tries PyPI first (``pip install --upgrade dictate-mlx``).  If PyPI
+    fails (package not published yet), falls back to installing from
+    the GitHub repository.
+
+    Args:
+        check_only: Only check for a newer version — do not install.
+        from_github: Force install from GitHub instead of PyPI.
+    """
+    from dictate import __version__
+
+    W = "\033[97m"
+    G = "\033[32m"
+    Y = "\033[33m"
+    R = "\033[31m"
+    D = "\033[2m"
+    B = "\033[1m"
+    N = "\033[0m"
+
+    GITHUB_REPO = "https://github.com/0xbrando/dictate.git"
+
+    print(f"\n{W}{B}Dictate Update{N}  {D}current: v{__version__}{N}\n")
+
+    if check_only:
+        print(f"  {D}Checking for updates...{N}")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "index", "versions", "dictate-mlx"],
+                capture_output=True, text=True, check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Parse latest version from pip index output
+                for line in result.stdout.strip().split("\n"):
+                    if "Available versions:" in line or "LATEST:" in line:
+                        print(f"  {G}PyPI:{N} {line.strip()}")
+                        break
+                else:
+                    print(f"  {D}PyPI: {result.stdout.strip()}{N}")
+            else:
+                print(f"  {Y}Not on PyPI yet.{N} Install from GitHub:")
+                print(f"  {D}pip install git+{GITHUB_REPO}{N}")
+        except Exception:
+            print(f"  {Y}Could not check PyPI.{N}")
+        print(f"\n  {D}Run 'dictate update' to install the latest version.{N}\n")
+        return 0
+
+    # --- Install ---
+    if from_github:
+        print(f"  {W}Installing from GitHub...{N}")
+        install_cmd = [
+            sys.executable, "-m", "pip", "install", "--upgrade",
+            f"git+{GITHUB_REPO}",
+        ]
+    else:
+        # Try PyPI first
+        print(f"  {W}Checking PyPI...{N}")
+        install_cmd = [
+            sys.executable, "-m", "pip", "install", "--upgrade", "dictate-mlx",
+        ]
+
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "dictate-mlx"],
-            capture_output=False,
-            text=True,
-            check=False
+            install_cmd, capture_output=True, text=True, check=False,
         )
+
+        if result.returncode != 0 and not from_github:
+            # PyPI failed — try GitHub
+            print(f"  {Y}Not on PyPI yet — installing from GitHub...{N}")
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade",
+                 f"git+{GITHUB_REPO}"],
+                capture_output=True, text=True, check=False,
+            )
+
         if result.returncode != 0:
-            print(f"Update failed with exit code {result.returncode}")
-            return result.returncode
-        print("Update successful!")
+            print(f"\n  {R}✗ Update failed{N}")
+            if result.stderr:
+                # Show last few lines of error
+                err_lines = result.stderr.strip().split("\n")[-3:]
+                for line in err_lines:
+                    print(f"  {D}{line}{N}")
+            return 1
+
+        # Check new version
+        ver_result = subprocess.run(
+            [sys.executable, "-c", "from dictate import __version__; print(__version__)"],
+            capture_output=True, text=True, check=False,
+        )
+        new_version = ver_result.stdout.strip() if ver_result.returncode == 0 else "unknown"
+
+        if new_version == __version__:
+            print(f"\n  {G}✓ Already up to date{N} (v{__version__})")
+        else:
+            print(f"\n  {G}✓ Updated{N} v{__version__} → v{new_version}")
+
     except Exception as e:
-        print(f"Update failed: {e}")
+        print(f"\n  {R}✗ Update failed:{N} {e}")
         return 1
-    
-    # Kill any running instance
-    print("Restarting Dictate...")
+
+    # Kill any running menu bar instance
     try:
-        subprocess.run(["pkill", "-f", "dictate\\.menubar_main"], capture_output=True, check=False)
-        time.sleep(0.5)  # Give it time to shut down
+        result = subprocess.run(
+            ["pgrep", "-f", "dictate.menubar_main"],
+            capture_output=True, text=True, check=False,
+        )
+        pids = [p for p in result.stdout.strip().split("\n") if p and p != str(os.getpid())]
+        if pids:
+            print(f"  {D}Stopping running instance (PID {pids[0]})...{N}")
+            subprocess.run(
+                ["pkill", "-f", "dictate\\.menubar_main"],
+                capture_output=True, check=False,
+            )
+            time.sleep(0.5)
+
+            # Relaunch
+            try:
+                subprocess.Popen(
+                    [sys.executable, "-m", "dictate.menubar_main"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                print(f"  {G}✓ Restarted{N}")
+            except Exception:
+                print(f"  {Y}Run 'dictate' to restart.{N}")
     except Exception:
         pass
-    
-    # Relaunch Dictate in background
-    try:
-        subprocess.Popen(
-            [sys.executable, "-m", "dictate.menubar_main"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True
-        )
-        print("Dictate restarted.")
-    except Exception as e:
-        print(f"Failed to restart: {e}")
-        print("Please run 'dictate' manually to start the app.")
+
+    print()
     
     return 0
 
@@ -721,6 +813,8 @@ def main() -> int:
         print("  doctor          Run diagnostic checks")
         print("  devices         List audio input devices")
         print("  update          Update to the latest version")
+        print("  update --check  Check for updates without installing")
+        print("  update --github Install latest from GitHub")
         print()
         print("Options:")
         print("  -f, --foreground  Run in foreground (show logs)")
@@ -760,7 +854,9 @@ def main() -> int:
 
     # Handle update command
     if "update" in sys.argv or "--update" in sys.argv:
-        return _run_update()
+        check_only = "--check" in sys.argv
+        from_github = "--github" in sys.argv
+        return _run_update(check_only=check_only, from_github=from_github)
     
     # Daemonize before anything else — detach from terminal
     foreground = "--foreground" in sys.argv or "-f" in sys.argv
