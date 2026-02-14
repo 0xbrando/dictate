@@ -5,6 +5,17 @@ All notable changes to Dictate are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **5 new writing styles** — Email, Slack/Chat, Technical, Tweet, Raw (8 total)
+- **`dictate status` command** — shows system info, models, preferences, running state
+- **Raw mode** — bypasses LLM cleanup entirely for exact transcription output
+
+### Fixed
+- Test regex mismatch with new error message from robustness merge
+- README test badge updated (871 tests)
+
 ## [2.4.1] - 2026-02-10
 
 ### Fixed
