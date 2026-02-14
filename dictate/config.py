@@ -265,6 +265,33 @@ class LLMConfig:
                 "Each bullet should be one clear action or point. "
                 "Output ONLY the bullet points."
             ),
+            "email": (
+                "You are a dictation post-processor. "
+                "Format the dictation as a professional email. "
+                "Add appropriate greeting and sign-off if not present. "
+                "Fix grammar, punctuation, and paragraph breaks. "
+                "Output ONLY the formatted email text."
+            ),
+            "slack": (
+                "You are a dictation post-processor. "
+                "Rewrite as a casual, concise chat message. "
+                "Keep it short and conversational. "
+                "Remove filler words and unnecessary formality. "
+                "Output ONLY the chat message."
+            ),
+            "technical": (
+                "You are a dictation post-processor. "
+                "Rewrite in precise technical documentation style. "
+                "Use clear, unambiguous language. "
+                "Preserve technical terms and code references exactly. "
+                "Output ONLY the technical text."
+            ),
+            "tweet": (
+                "You are a dictation post-processor. "
+                "Condense the dictation into a tweet (max 280 characters). "
+                "Make it engaging and clear. Remove filler words. "
+                "Output ONLY the tweet text, nothing else."
+            ),
         }
 
         style = style_prompts.get(self.writing_style, style_prompts["clean"])

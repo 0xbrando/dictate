@@ -9,7 +9,7 @@
   <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-828%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-864%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-97%25-brightgreen" alt="Coverage">
 </p>
 
@@ -107,6 +107,11 @@ Both included. Switch anytime from the menu bar.
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
 | **Formal** | Rewrites in a professional tone |
 | **Bullet Points** | Distills dictation into concise key points |
+| **Email** | Formats as a professional email with greeting and sign-off |
+| **Slack / Chat** | Casual, concise, chat-friendly messages |
+| **Technical** | Precise technical documentation style |
+| **Tweet** | Condenses to under 280 characters |
+| **Raw** | No LLM processing — exact transcription output |
 
 ### 🌐 Real-Time Translation
 
@@ -137,7 +142,7 @@ Times on M3 Ultra. The app picks the best default for your chip.
 
 Everything accessible from the waveform icon:
 
-- **Writing Style** — Clean Up, Formal, Bullet Points
+- **Writing Style** — Clean Up, Formal, Bullet Points, Email, Slack, Technical, Tweet, Raw
 - **Quality** — model size (shows only downloaded models)
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
