@@ -9,7 +9,7 @@
   <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-935%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-956%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-97%25-brightgreen" alt="Coverage">
 </p>
 
@@ -202,6 +202,7 @@ dictate config set stt whisper
 dictate config reset # Reset to defaults
 dictate stats        # Show usage statistics
 dictate status       # System info and model status
+dictate doctor       # Run diagnostic checks (troubleshooting)
 dictate update       # Update to latest version
 dictate -f           # Run in foreground (debug)
 dictate -V           # Show version
