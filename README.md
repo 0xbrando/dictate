@@ -183,6 +183,37 @@ The **Smart** preset auto-routes by length: short phrases → fast local model (
 
 Dictate works well as a voice input layer for AI assistants and agent frameworks. If you're building with tools like Claude Code, OpenClaw, or similar — Dictate gives your setup a local, private voice interface with zero cloud dependency.
 
+## CLI Commands
+
+```bash
+dictate              # Launch in menu bar (backgrounds automatically)
+dictate config       # View all preferences
+dictate config set writing_style formal
+dictate config set quality speedy
+dictate config set ptt_key cmd_r
+dictate config set stt whisper
+dictate config reset # Reset to defaults
+dictate stats        # Show usage statistics
+dictate status       # System info and model status
+dictate update       # Update to latest version
+dictate -f           # Run in foreground (debug)
+dictate -V           # Show version
+```
+
+### Config Keys
+
+| Key | Values |
+|-----|--------|
+| `writing_style` | clean, formal, bullets |
+| `quality` | api, speedy, fast, balanced, quality |
+| `stt` | parakeet, whisper |
+| `input_language` | auto, en, ja, de, fr, es, ... |
+| `output_language` | auto, en, ja, de, fr, es, ... |
+| `ptt_key` | ctrl_l, ctrl_r, cmd_r, alt_l, alt_r |
+| `llm_cleanup` | on, off |
+| `sound` | soft_pop, chime, warm, click, marimba, simple |
+| `llm_endpoint` | host:port (for API backend) |
+
 ## Debugging
 
 ```bash
@@ -199,7 +230,7 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
 - Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
-- 828 tests, 97% code coverage.
+- 935 tests, 97% code coverage.
 
 ## Contributing
 
