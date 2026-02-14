@@ -222,6 +222,21 @@ dictate -V           # Show version
 | `sound` | soft_pop, chime, warm, click, marimba, simple |
 | `llm_endpoint` | host:port (for API backend) |
 
+## Shell Completions
+
+Tab completions for bash and zsh:
+
+```bash
+# Bash — add to ~/.bashrc
+source /path/to/dictate/completions/dictate.bash
+
+# Zsh — copy to fpath dir, then reload
+cp completions/dictate.zsh ~/.zsh/completions/_dictate
+autoload -Uz compinit && compinit
+```
+
+Completes commands, config keys, and all valid values.
+
 ## Debugging
 
 ```bash
@@ -238,7 +253,7 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
 - Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
-- 935 tests, 97% code coverage.
+- 983 tests, 97% code coverage.
 
 ## Contributing
 
