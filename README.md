@@ -9,7 +9,7 @@
   <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-828%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-1020%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-97%25-brightgreen" alt="Coverage">
 </p>
 
@@ -31,7 +31,7 @@
 | **100% local** | ✅ | ✅ | ❌ (cloud) | ✅ | Partial |
 | **LLM cleanup** | ✅ | ❌ | ✅ | ❌ | ❌ |
 | **Translation** | ✅ 12 langs | ❌ | ❌ | ❌ | ❌ |
-| **Writing styles** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Writing styles** | ✅ 8 modes | ❌ | ✅ | ❌ | ❌ |
 | **Push-to-talk** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Personal dictionary** | ✅ | ❌ | ✅ | ❌ | ✅ |
 
@@ -107,6 +107,13 @@ Both included. Switch anytime from the menu bar.
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
 | **Formal** | Rewrites in a professional tone |
 | **Bullet Points** | Distills dictation into concise key points |
+| **Email** | Formats as a professional email with greeting and sign-off |
+| **Slack / Chat** | Casual, concise, chat-friendly messages |
+| **Technical** | Precise technical documentation style |
+| **Tweet** | Condenses to under 280 characters |
+| **Raw** | No LLM processing — exact transcription output |
+
+8 writing styles — more than any macOS dictation tool.
 
 ### 🌐 Real-Time Translation
 
@@ -137,7 +144,7 @@ Times on M3 Ultra. The app picks the best default for your chip.
 
 Everything accessible from the waveform icon:
 
-- **Writing Style** — Clean Up, Formal, Bullet Points
+- **Writing Style** — Clean Up, Formal, Bullet Points, Email, Slack, Technical, Tweet, Raw
 - **Quality** — model size (shows only downloaded models)
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
@@ -183,6 +190,54 @@ The **Smart** preset auto-routes by length: short phrases → fast local model (
 
 Dictate works well as a voice input layer for AI assistants and agent frameworks. If you're building with tools like Claude Code, OpenClaw, or similar — Dictate gives your setup a local, private voice interface with zero cloud dependency.
 
+## CLI Commands
+
+```bash
+dictate              # Launch in menu bar (backgrounds automatically)
+dictate config       # View all preferences
+dictate config set writing_style formal
+dictate config set quality speedy
+dictate config set ptt_key cmd_r
+dictate config set stt whisper
+dictate config reset # Reset to defaults
+dictate stats        # Show usage statistics
+dictate status       # System info and model status
+dictate doctor       # Run diagnostic checks (troubleshooting)
+dictate devices      # List audio input devices
+dictate update       # Update to latest version
+dictate -f           # Run in foreground (debug)
+dictate -V           # Show version
+```
+
+### Config Keys
+
+| Key | Values |
+|-----|--------|
+| `writing_style` | clean, formal, bullets, email, slack, technical, tweet, raw |
+| `quality` | api, speedy, fast, balanced, quality |
+| `stt` | parakeet, whisper |
+| `input_language` | auto, en, ja, de, fr, es, ... |
+| `output_language` | auto, en, ja, de, fr, es, ... |
+| `ptt_key` | ctrl_l, ctrl_r, cmd_r, alt_l, alt_r |
+| `llm_cleanup` | on, off |
+| `sound` | soft_pop, chime, warm, click, marimba, simple |
+| `llm_endpoint` | host:port (for API backend) |
+
+## Shell Completions
+
+Tab completions for bash and zsh:
+
+```bash
+# Bash — add to ~/.bashrc
+source /path/to/dictate/completions/dictate.bash
+
+# Zsh — copy to fpath dir, then reload
+cp completions/dictate.zsh ~/.zsh/completions/_dictate
+autoload -Uz compinit && compinit
+```
+
+Completes commands, config keys, and all valid values.
+
 ## Debugging
 
 ```bash
@@ -199,7 +254,7 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
 - Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
-- 828 tests, 97% code coverage.
+- 994 tests, 97% code coverage.
 
 ## Contributing
 

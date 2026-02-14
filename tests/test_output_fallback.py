@@ -48,7 +48,7 @@ class TestTyperOutputClipboardFallback:
             mock_pyperclip.PyperclipException = pyperclip.PyperclipException
             mock_pyperclip.copy.side_effect = pyperclip.PyperclipException("no clipboard")
 
-            with pytest.raises(RuntimeError, match="clipboard unavailable and typing failed"):
+            with pytest.raises(RuntimeError, match="Could not paste or type text"):
                 handler.output("will fail")
 
     @patch("dictate.output.KeyboardController")

@@ -5,6 +5,37 @@ All notable changes to Dictate are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `dictate config` CLI — view, set, and reset preferences from the command line
+  - 11 configurable keys with validation and aliases (e.g., `quality speedy`)
+  - Show, set, reset, and path subcommands
+- `dictate stats` CLI — usage statistics dashboard
+  - Tracks dictations, words, characters, audio duration
+  - Writing style breakdown with bar chart visualization
+  - Stats automatically recorded during dictation
+- `dictate doctor` — diagnostic tool for troubleshooting
+  - Checks macOS version, Apple Silicon, Python, microphone, models,
+    disk space, accessibility, Parakeet, LLM endpoint, duplicate instances
+  - Clear pass/warn/fail output with actionable suggestions
+- `dictate status` — system info and model cache overview
+- `dictate devices` — list available audio input devices with default marker
+- `dictate update --check` — check for updates without installing
+- `dictate update --github` — force install from GitHub repository
+- Shell completions for bash and zsh (tab-complete commands, config keys, values)
+- 5 new writing styles: Email, Slack/Chat, Technical, Tweet, Raw (total: 8)
+- Updated `--help` with all commands, update flags, and config examples
+- CLI Commands section in README with key reference table
+
+### Changed
+- `dictate update` now tries PyPI first, falls back to GitHub if unavailable
+- Update command shows colored output with version comparison (before → after)
+
+### Fixed
+- Test regex mismatch for output fallback error message
+- NameError crash when running `dictate status` (function was missing)
+
 ## [2.4.1] - 2026-02-10
 
 ### Fixed

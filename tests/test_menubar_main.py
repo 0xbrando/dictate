@@ -128,21 +128,46 @@ class TestDaemonize:
 
 
 class TestRunUpdate:
-    """Covers _run_update: pip upgrade, restart, error paths."""
+    """Covers _run_update: pip upgrade, GitHub fallback, check-only, restart."""
 
     @patch("dictate.menubar_main.subprocess.Popen")
     @patch("dictate.menubar_main.time.sleep")
     @patch("dictate.menubar_main.subprocess.run")
-    def test_success(self, mock_run, mock_sleep, mock_popen):
-        mock_run.return_value = MagicMock(returncode=0)
+    def test_pypi_success(self, mock_run, mock_sleep, mock_popen):
+        """PyPI install succeeds → update + version check + restart."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="", stderr=""),   # pip install (PyPI)
+            MagicMock(returncode=0, stdout="2.5.0\n", stderr=""),  # version check
+            MagicMock(returncode=0, stdout="12345\n", stderr=""),  # pgrep
+            MagicMock(returncode=0, stdout="", stderr=""),   # pkill
+        ]
         result = _run_update()
         assert result == 0
-        assert mock_run.call_count == 2  # pip install + pkill
-        mock_popen.assert_called_once()
+
+    @patch("dictate.menubar_main.subprocess.Popen")
+    @patch("dictate.menubar_main.time.sleep")
+    @patch("dictate.menubar_main.subprocess.run")
+    def test_pypi_fails_github_fallback(self, mock_run, mock_sleep, mock_popen):
+        """PyPI fails → falls back to GitHub install."""
+        mock_run.side_effect = [
+            MagicMock(returncode=1, stdout="", stderr="not found"),  # pip install (PyPI) fails
+            MagicMock(returncode=0, stdout="", stderr=""),   # pip install (GitHub) succeeds
+            MagicMock(returncode=0, stdout="2.5.0\n", stderr=""),  # version check
+            MagicMock(returncode=0, stdout="\n", stderr=""),  # pgrep (no running instance)
+        ]
+        result = _run_update()
+        assert result == 0
+        # Should have tried pip twice (PyPI then GitHub)
+        calls = mock_run.call_args_list
+        # First call: pip install --upgrade dictate-mlx
+        assert "dictate-mlx" in str(calls[0])
+        # Second call: pip install from git+https://github.com/
+        assert "git+" in str(calls[1])
 
     @patch("dictate.menubar_main.subprocess.run")
-    def test_pip_failure(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1)
+    def test_both_fail(self, mock_run):
+        """Both PyPI and GitHub fail → returns 1."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
         result = _run_update()
         assert result == 1
 
@@ -151,15 +176,71 @@ class TestRunUpdate:
         result = _run_update()
         assert result == 1
 
-    @patch("dictate.menubar_main.subprocess.Popen", side_effect=Exception("spawn fail"))
+    @patch("dictate.menubar_main.subprocess.run")
+    def test_from_github_flag(self, mock_run):
+        """--github flag skips PyPI, goes straight to GitHub."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="", stderr=""),   # pip install (GitHub)
+            MagicMock(returncode=0, stdout="2.5.0\n", stderr=""),  # version check
+            MagicMock(returncode=0, stdout="\n", stderr=""),  # pgrep (none running)
+        ]
+        result = _run_update(from_github=True)
+        assert result == 0
+        # First call should be git+ URL, NOT dictate-mlx
+        first_call = str(mock_run.call_args_list[0])
+        assert "git+" in first_call
+
+    @patch("dictate.menubar_main.subprocess.run")
+    def test_check_only(self, mock_run, capsys):
+        """--check only checks PyPI, doesn't install."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="Available versions: 2.5.0, 2.4.1\n",
+            stderr="",
+        )
+        result = _run_update(check_only=True)
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "update" in captured.out.lower()
+
+    @patch("dictate.menubar_main.subprocess.run")
+    def test_check_only_not_on_pypi(self, mock_run, capsys):
+        """--check when not on PyPI shows GitHub instructions."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
+        result = _run_update(check_only=True)
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "github" in captured.out.lower()
+
+    @patch("dictate.menubar_main.subprocess.Popen")
     @patch("dictate.menubar_main.time.sleep")
     @patch("dictate.menubar_main.subprocess.run")
-    def test_restart_failure_still_returns_0(self, mock_run, mock_sleep, mock_popen, capsys):
-        mock_run.return_value = MagicMock(returncode=0)
+    def test_already_up_to_date(self, mock_run, mock_sleep, mock_popen, capsys):
+        """When installed version matches current → shows 'already up to date'."""
+        from dictate import __version__
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="", stderr=""),   # pip install
+            MagicMock(returncode=0, stdout=f"{__version__}\n", stderr=""),  # version check (same)
+            MagicMock(returncode=0, stdout="\n", stderr=""),  # pgrep (none)
+        ]
         result = _run_update()
-        assert result == 0  # Update succeeded even if restart failed
+        assert result == 0
         captured = capsys.readouterr()
-        assert "Failed to restart" in captured.out
+        assert "up to date" in captured.out.lower()
+
+    @patch("dictate.menubar_main.subprocess.Popen")
+    @patch("dictate.menubar_main.time.sleep")
+    @patch("dictate.menubar_main.subprocess.run")
+    def test_no_running_instance_no_restart(self, mock_run, mock_sleep, mock_popen):
+        """When no instance running, doesn't try to restart."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="", stderr=""),   # pip install
+            MagicMock(returncode=0, stdout="2.5.0\n", stderr=""),  # version check
+            MagicMock(returncode=0, stdout="\n", stderr=""),  # pgrep (empty = none running)
+        ]
+        result = _run_update()
+        assert result == 0
+        mock_popen.assert_not_called()  # No restart needed
 
 
 # ── setup_logging ──────────────────────────────────────────────────
@@ -234,14 +315,28 @@ class TestMain:
         with patch.object(sys, "argv", ["dictate", "update"]):
             result = main()
         assert result == 0
-        mock_update.assert_called_once()
+        mock_update.assert_called_once_with(check_only=False, from_github=False)
 
     @patch("dictate.menubar_main._run_update", return_value=0)
     def test_dash_update_flag_runs_update(self, mock_update):
         with patch.object(sys, "argv", ["dictate", "--update"]):
             result = main()
         assert result == 0
-        mock_update.assert_called_once()
+        mock_update.assert_called_once_with(check_only=False, from_github=False)
+
+    @patch("dictate.menubar_main._run_update", return_value=0)
+    def test_update_check_flag(self, mock_update):
+        with patch.object(sys, "argv", ["dictate", "update", "--check"]):
+            result = main()
+        assert result == 0
+        mock_update.assert_called_once_with(check_only=True, from_github=False)
+
+    @patch("dictate.menubar_main._run_update", return_value=0)
+    def test_update_github_flag(self, mock_update):
+        with patch.object(sys, "argv", ["dictate", "update", "--github"]):
+            result = main()
+        assert result == 0
+        mock_update.assert_called_once_with(check_only=False, from_github=True)
 
     @patch("dictate.menubar_main._daemonize")
     @patch("dictate.menubar_main.os.close")
