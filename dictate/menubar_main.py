@@ -33,6 +33,107 @@ LOCK_FILE = Path.home() / "Library" / "Application Support" / "Dictate" / "dicta
 LOG_FILE = Path.home() / "Library" / "Logs" / "Dictate" / "dictate.log"
 
 
+def _show_status() -> int:
+    """Show system info and model status for troubleshooting."""
+    from dictate import __version__
+    from dictate.config import is_model_cached, get_cached_model_disk_size, WHISPER_MODEL
+    from dictate.presets import (
+        Preferences, QUALITY_PRESETS, STT_PRESETS, WRITING_STYLES,
+        PREFS_DIR, PREFS_FILE,
+    )
+
+    W = "\033[97m"   # bright white
+    G = "\033[32m"   # green
+    R = "\033[31m"   # red
+    D = "\033[2m"    # dim
+    B = "\033[1m"    # bold
+    N = "\033[0m"    # reset
+
+    print(f"\n{W}{B}Dictate Status{N}  {D}v{__version__}{N}\n")
+
+    # System info
+    import platform
+    chip = platform.processor() or "unknown"
+    mac_ver = platform.mac_ver()[0] or "unknown"
+    py_ver = platform.python_version()
+    print(f"  {W}System{N}")
+    print(f"  macOS {mac_ver} · Python {py_ver} · {chip}")
+    print()
+
+    # Check if running
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "dictate.menubar_main"],
+            capture_output=True, text=True, check=False,
+        )
+        pids = [p for p in result.stdout.strip().split("\n") if p and p != str(os.getpid())]
+        if pids:
+            print(f"  {W}Status{N}  {G}● Running{N} (PID {pids[0]})")
+        else:
+            print(f"  {W}Status{N}  {D}○ Not running{N}")
+    except Exception:
+        print(f"  {W}Status{N}  {D}? Unknown{N}")
+    print()
+
+    # Models
+    print(f"  {W}Models{N}")
+    whisper_cached = is_model_cached(WHISPER_MODEL)
+    whisper_size = get_cached_model_disk_size(WHISPER_MODEL) if whisper_cached else "not downloaded"
+    status = f"{G}✓{N}" if whisper_cached else f"{R}✗{N}"
+    print(f"  {status} Whisper: {WHISPER_MODEL} ({whisper_size})")
+
+    # Check Parakeet
+    try:
+        import parakeet_mlx  # noqa: F401
+        print(f"  {G}✓{N} Parakeet: installed")
+    except ImportError:
+        print(f"  {D}○ Parakeet: not installed{N}")
+
+    # LLM models
+    from dictate.config import LLMModel
+    for model in LLMModel:
+        cached = is_model_cached(model.hf_repo)
+        size = get_cached_model_disk_size(model.hf_repo) if cached else "not downloaded"
+        status = f"{G}✓{N}" if cached else f"{D}○{N}"
+        print(f"  {status} LLM {model.value}: {model.hf_repo} ({size})")
+    print()
+
+    # Preferences
+    print(f"  {W}Preferences{N}")
+    print(f"  Config dir: {PREFS_DIR}")
+    if PREFS_FILE.exists():
+        prefs = Preferences.load()
+        quality = QUALITY_PRESETS[prefs.quality_preset] if prefs.quality_preset < len(QUALITY_PRESETS) else None
+        stt = STT_PRESETS[prefs.stt_preset] if prefs.stt_preset < len(STT_PRESETS) else None
+        style_name = next((s[1] for s in WRITING_STYLES if s[0] == prefs.writing_style), prefs.writing_style)
+        print(f"  Quality: {quality.label if quality else 'Unknown'}")
+        print(f"  STT: {stt.label if stt else 'Unknown'}")
+        print(f"  Writing style: {style_name}")
+        print(f"  LLM cleanup: {'on' if prefs.llm_cleanup else 'off'}")
+        print(f"  Input language: {prefs.input_language}")
+        print(f"  Output language: {prefs.output_language}")
+        print(f"  PTT key: {prefs.ptt_key}")
+    else:
+        print(f"  {D}No preferences file (will use defaults){N}")
+    print()
+
+    # Log file
+    if LOG_FILE.exists():
+        size = LOG_FILE.stat().st_size
+        if size > 1024 * 1024:
+            size_str = f"{size / 1024 / 1024:.1f} MB"
+        elif size > 1024:
+            size_str = f"{size / 1024:.1f} KB"
+        else:
+            size_str = f"{size} bytes"
+        print(f"  {W}Logs{N}")
+        print(f"  {LOG_FILE} ({size_str})")
+    print()
+
+    return 0
+
+
 def _run_update() -> int:
     """Run pip install --upgrade and restart Dictate."""
     print("Updating Dictate...")
@@ -151,6 +252,7 @@ def main() -> int:
         print()
         print("Commands:")
         print("  (default)       Launch Dictate in the menu bar")
+        print("  status          Show system info and model status")
         print("  update          Update to the latest version")
         print()
         print("Options:")
@@ -160,6 +262,10 @@ def main() -> int:
         print()
         print("https://github.com/0xbrando/dictate")
         return 0
+
+    # Handle status command
+    if "status" in sys.argv:
+        return _show_status()
 
     # Handle update command before anything else
     if "update" in sys.argv or "--update" in sys.argv:
