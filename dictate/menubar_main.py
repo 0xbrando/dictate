@@ -251,6 +251,48 @@ def _config_command(args: list[str]) -> int:
     return 0
 
 
+def _show_stats() -> int:
+    """Show usage statistics."""
+    from dictate.stats import UsageStats
+
+    W = "\033[97m"   # bright white
+    Y = "\033[33m"   # yellow
+    D = "\033[2m"    # dim
+    B = "\033[1m"    # bold
+    N = "\033[0m"    # reset
+
+    stats = UsageStats.load()
+
+    if stats.total_dictations == 0:
+        print(f"\n{D}No dictations recorded yet. Start talking!{N}\n")
+        return 0
+
+    print(f"\n{W}{B}Dictate Stats{N}\n")
+    print(f"  {W}Dictations{N}      {Y}{stats.total_dictations:,}{N}")
+    print(f"  {W}Words{N}           {Y}{stats.total_words:,}{N}")
+    print(f"  {W}Characters{N}      {Y}{stats.total_characters:,}{N}")
+    print(f"  {W}Audio recorded{N}  {Y}{stats.format_duration(stats.total_audio_seconds)}{N}")
+    print()
+
+    # Average words per dictation
+    avg_words = stats.total_words / stats.total_dictations
+    print(f"  {W}Avg words/dictation{N}  {Y}{avg_words:.1f}{N}")
+
+    # Time info
+    print(f"  {W}First use{N}       {D}{stats.format_time_ago(stats.first_use)}{N}")
+    print(f"  {W}Last use{N}        {D}{stats.format_time_ago(stats.last_use)}{N}")
+
+    # Writing styles breakdown
+    if stats.styles_used:
+        print(f"\n  {W}Writing Styles{N}")
+        for style, count in sorted(stats.styles_used.items(), key=lambda x: -x[1]):
+            pct = (count / stats.total_dictations) * 100
+            bar = "█" * max(1, int(pct / 5))
+            print(f"  {D}{bar}{N} {Y}{style}{N} {D}({count}, {pct:.0f}%){N}")
+    print()
+    return 0
+
+
 def _run_update() -> int:
     """Run pip install --upgrade and restart Dictate."""
     print("Updating Dictate...")
@@ -370,6 +412,7 @@ def main() -> int:
         print("Commands:")
         print("  (default)       Launch Dictate in the menu bar")
         print("  config          View and modify preferences")
+        print("  stats           Show usage statistics")
         print("  status          Show system info and model status")
         print("  update          Update to the latest version")
         print()
@@ -392,6 +435,10 @@ def main() -> int:
     if "config" in sys.argv:
         config_idx = sys.argv.index("config")
         return _config_command(sys.argv[config_idx + 1:])
+
+    # Handle stats command
+    if "stats" in sys.argv:
+        return _show_stats()
 
     # Handle status command
     if "status" in sys.argv:
