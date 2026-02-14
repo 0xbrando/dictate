@@ -251,6 +251,106 @@ def _config_command(args: list[str]) -> int:
     return 0
 
 
+def _show_status() -> int:
+    """Show system info and model status for troubleshooting."""
+    from dictate import __version__
+    from dictate.config import is_model_cached, get_cached_model_disk_size, WHISPER_MODEL
+    from dictate.presets import (
+        Preferences, QUALITY_PRESETS, STT_PRESETS, WRITING_STYLES,
+        PREFS_DIR, PREFS_FILE,
+    )
+
+    W = "\033[97m"   # bright white
+    G = "\033[32m"   # green
+    R = "\033[31m"   # red
+    D = "\033[2m"    # dim
+    B = "\033[1m"    # bold
+    N = "\033[0m"    # reset
+
+    print(f"\n{W}{B}Dictate Status{N}  {D}v{__version__}{N}\n")
+
+    # System info
+    import platform
+    chip = platform.processor() or "unknown"
+    mac_ver = platform.mac_ver()[0] or "unknown"
+    py_ver = platform.python_version()
+    print(f"  {W}System{N}")
+    print(f"  macOS {mac_ver} · Python {py_ver} · {chip}")
+    print()
+
+    # Check if running
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "dictate.menubar_main"],
+            capture_output=True, text=True, check=False,
+        )
+        pids = [p for p in result.stdout.strip().split("\n") if p and p != str(os.getpid())]
+        if pids:
+            print(f"  {W}Status{N}  {G}● Running{N} (PID {pids[0]})")
+        else:
+            print(f"  {W}Status{N}  {D}○ Not running{N}")
+    except Exception:
+        print(f"  {W}Status{N}  {D}? Unknown{N}")
+    print()
+
+    # Models
+    print(f"  {W}Models{N}")
+    whisper_cached = is_model_cached(WHISPER_MODEL)
+    whisper_size = get_cached_model_disk_size(WHISPER_MODEL) if whisper_cached else "not downloaded"
+    st = f"{G}✓{N}" if whisper_cached else f"{R}✗{N}"
+    print(f"  {st} Whisper: {WHISPER_MODEL} ({whisper_size})")
+
+    # Check Parakeet
+    try:
+        import parakeet_mlx  # noqa: F401
+        print(f"  {G}✓{N} Parakeet: installed")
+    except ImportError:
+        print(f"  {D}○ Parakeet: not installed{N}")
+
+    # LLM models
+    from dictate.config import LLMModel
+    for model in LLMModel:
+        cached = is_model_cached(model.hf_repo)
+        size = get_cached_model_disk_size(model.hf_repo) if cached else "not downloaded"
+        st = f"{G}✓{N}" if cached else f"{D}○{N}"
+        print(f"  {st} LLM {model.value}: {model.hf_repo} ({size})")
+    print()
+
+    # Preferences
+    print(f"  {W}Preferences{N}")
+    print(f"  Config dir: {PREFS_DIR}")
+    if PREFS_FILE.exists():
+        prefs = Preferences.load()
+        quality = QUALITY_PRESETS[prefs.quality_preset] if prefs.quality_preset < len(QUALITY_PRESETS) else None
+        stt = STT_PRESETS[prefs.stt_preset] if prefs.stt_preset < len(STT_PRESETS) else None
+        style_name = next((s[1] for s in WRITING_STYLES if s[0] == prefs.writing_style), prefs.writing_style)
+        print(f"  Quality: {quality.label if quality else 'Unknown'}")
+        print(f"  STT: {stt.label if stt else 'Unknown'}")
+        print(f"  Writing style: {style_name}")
+        print(f"  LLM cleanup: {'on' if prefs.llm_cleanup else 'off'}")
+        print(f"  Input language: {prefs.input_language}")
+        print(f"  Output language: {prefs.output_language}")
+        print(f"  PTT key: {prefs.ptt_key}")
+    else:
+        print(f"  {D}No preferences file (will use defaults){N}")
+    print()
+
+    # Log file
+    if LOG_FILE.exists():
+        size = LOG_FILE.stat().st_size
+        if size > 1024 * 1024:
+            size_str = f"{size / 1024 / 1024:.1f} MB"
+        elif size > 1024:
+            size_str = f"{size / 1024:.1f} KB"
+        else:
+            size_str = f"{size} bytes"
+        print(f"  {W}Logs{N}")
+        print(f"  {LOG_FILE} ({size_str})")
+    print()
+
+    return 0
+
+
 def _show_stats() -> int:
     """Show usage statistics."""
     from dictate.stats import UsageStats
@@ -291,6 +391,171 @@ def _show_stats() -> int:
             print(f"  {D}{bar}{N} {Y}{style}{N} {D}({count}, {pct:.0f}%){N}")
     print()
     return 0
+
+
+def _run_doctor() -> int:
+    """Run diagnostic checks and report issues."""
+    from dictate import __version__
+    from dictate.config import is_model_cached, WHISPER_MODEL
+
+    W = "\033[97m"
+    G = "\033[32m"
+    Y = "\033[33m"
+    R = "\033[31m"
+    D = "\033[2m"
+    B = "\033[1m"
+    N = "\033[0m"
+
+    print(f"\n{W}{B}Dictate Doctor{N}  {D}v{__version__}{N}\n")
+
+    issues = []
+    warnings = []
+
+    # 1. Check macOS version
+    import platform
+    mac_ver = platform.mac_ver()[0]
+    if mac_ver:
+        major = int(mac_ver.split(".")[0])
+        if major >= 14:
+            print(f"  {G}✓{N} macOS {mac_ver} (supported)")
+        elif major >= 13:
+            print(f"  {Y}⚠{N} macOS {mac_ver} (may work, 14+ recommended)")
+            warnings.append("macOS 14+ recommended for best MLX performance")
+        else:
+            print(f"  {R}✗{N} macOS {mac_ver} (too old — need 13+)")
+            issues.append("macOS 13+ required for Apple Silicon MLX")
+    else:
+        print(f"  {Y}?{N} Could not detect macOS version")
+
+    # 2. Check Apple Silicon
+    chip = platform.processor()
+    if "arm" in chip.lower():
+        print(f"  {G}✓{N} Apple Silicon ({chip})")
+    else:
+        print(f"  {R}✗{N} Processor: {chip} (Apple Silicon required)")
+        issues.append("Apple Silicon required for MLX inference")
+
+    # 3. Check Python version
+    py_ver = platform.python_version()
+    py_major, py_minor = int(py_ver.split(".")[0]), int(py_ver.split(".")[1])
+    if py_major == 3 and 11 <= py_minor <= 13:
+        print(f"  {G}✓{N} Python {py_ver}")
+    elif py_major == 3 and py_minor >= 14:
+        print(f"  {Y}⚠{N} Python {py_ver} (some dependencies may not support 3.14+)")
+        warnings.append("Python 3.14+ has limited package support")
+    else:
+        print(f"  {R}✗{N} Python {py_ver} (need 3.11+)")
+        issues.append("Python 3.11+ required")
+
+    # 4. Check microphone access
+    print()
+    try:
+        import sounddevice as sd
+        devices = sd.query_devices()
+        input_devices = [d for d in devices if d.get("max_input_channels", 0) > 0]
+        if input_devices:
+            default_input = sd.query_devices(kind="input")
+            name = default_input.get("name", "Unknown")
+            print(f"  {G}✓{N} Microphone: {name}")
+            print(f"    {D}{len(input_devices)} input device(s) available{N}")
+        else:
+            print(f"  {R}✗{N} No input devices found")
+            issues.append("No microphone detected — check System Settings > Sound")
+    except Exception as e:
+        print(f"  {Y}⚠{N} Could not check microphone: {e}")
+        warnings.append("Could not query audio devices — sounddevice may not be installed")
+
+    # 5. Check Whisper model
+    print()
+    if is_model_cached(WHISPER_MODEL):
+        print(f"  {G}✓{N} Whisper model cached")
+    else:
+        print(f"  {Y}⚠{N} Whisper model not downloaded yet")
+        warnings.append(f"Whisper model ({WHISPER_MODEL}) will download on first use (~1.5 GB)")
+
+    # 6. Check Parakeet
+    try:
+        import parakeet_mlx  # noqa: F401
+        print(f"  {G}✓{N} Parakeet STT available")
+    except ImportError:
+        print(f"  {D}○{N} Parakeet not installed (optional — Whisper is default)")
+
+    # 7. Check LLM endpoint (if configured for API mode)
+    from dictate.presets import Preferences, PREFS_FILE
+    if PREFS_FILE.exists():
+        prefs = Preferences.load()
+        if prefs.llm_endpoint and prefs.llm_endpoint != "localhost:8080":
+            import urllib.request
+            import urllib.error
+            url = f"http://{prefs.llm_endpoint}/v1/models"
+            try:
+                req = urllib.request.urlopen(url, timeout=3)
+                req.close()
+                print(f"  {G}✓{N} LLM endpoint reachable: {prefs.llm_endpoint}")
+            except (urllib.error.URLError, OSError):
+                print(f"  {Y}⚠{N} LLM endpoint not reachable: {prefs.llm_endpoint}")
+                warnings.append(f"LLM endpoint ({prefs.llm_endpoint}) is not responding")
+
+    # 8. Check disk space
+    print()
+    import shutil
+    total, used, free = shutil.disk_usage(Path.home())
+    free_gb = free / (1024 ** 3)
+    if free_gb > 10:
+        print(f"  {G}✓{N} Disk space: {free_gb:.1f} GB free")
+    elif free_gb > 3:
+        print(f"  {Y}⚠{N} Disk space: {free_gb:.1f} GB free (getting low)")
+        warnings.append("Less than 10 GB free — model downloads may fail")
+    else:
+        print(f"  {R}✗{N} Disk space: {free_gb:.1f} GB free (critically low)")
+        issues.append("Less than 3 GB free — Dictate needs space for models")
+
+    # 9. Check accessibility permissions
+    print()
+    try:
+        # Check if we can detect key events (rough proxy for accessibility)
+        import Quartz  # noqa: F401
+        print(f"  {G}✓{N} Quartz framework available (key detection)")
+    except ImportError:
+        print(f"  {Y}⚠{N} Quartz not available — key detection may not work")
+        warnings.append("Quartz framework not available")
+
+    # 10. Check for duplicate instances
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "dictate.menubar_main"],
+            capture_output=True, text=True, check=False,
+        )
+        pids = [p for p in result.stdout.strip().split("\n") if p and p != str(os.getpid())]
+        if len(pids) > 1:
+            print(f"  {Y}⚠{N} Multiple instances running (PIDs: {', '.join(pids)})")
+            warnings.append("Multiple Dictate instances — run 'pkill -f dictate.menubar_main' to clean up")
+        elif len(pids) == 1:
+            print(f"  {G}✓{N} One instance running (PID {pids[0]})")
+        else:
+            print(f"  {D}○{N} Dictate not currently running")
+    except Exception:
+        pass
+
+    # Summary
+    print()
+    if issues:
+        print(f"  {R}{B}Issues ({len(issues)}):{N}")
+        for issue in issues:
+            print(f"  {R}  • {issue}{N}")
+    if warnings:
+        print(f"  {Y}{B}Warnings ({len(warnings)}):{N}")
+        for warning in warnings:
+            print(f"  {Y}  • {warning}{N}")
+    if not issues and not warnings:
+        print(f"  {G}{B}All checks passed!{N} Dictate should work correctly.")
+    elif not issues:
+        print(f"\n  {G}No critical issues.{N} Warnings are informational.")
+    else:
+        print(f"\n  {R}Fix the issues above before running Dictate.{N}")
+    print()
+
+    return 1 if issues else 0
 
 
 def _run_update() -> int:
@@ -414,6 +679,7 @@ def main() -> int:
         print("  config          View and modify preferences")
         print("  stats           Show usage statistics")
         print("  status          Show system info and model status")
+        print("  doctor          Run diagnostic checks")
         print("  update          Update to the latest version")
         print()
         print("Options:")
@@ -443,6 +709,10 @@ def main() -> int:
     # Handle status command
     if "status" in sys.argv:
         return _show_status()
+
+    # Handle doctor command
+    if "doctor" in sys.argv:
+        return _run_doctor()
 
     # Handle update command
     if "update" in sys.argv or "--update" in sys.argv:
