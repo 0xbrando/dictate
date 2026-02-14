@@ -1045,6 +1045,8 @@ class DictateMenuBarApp(rumps.App):
             text = pipeline.process(audio)
             if text:
                 self._emit_output(text)
+                # Record usage stats
+                self._record_stats(text, audio)
                 if pipeline.last_cleanup_failed:
                     self._post_ui("status", "Ready (cleanup skipped)")
                 else:
@@ -1057,6 +1059,18 @@ class DictateMenuBarApp(rumps.App):
         except Exception:
             logger.exception("Processing error")
             self._post_ui("status", "Processing error — try again")
+
+    def _record_stats(self, text: str, audio: NDArray[np.int16]) -> None:
+        """Record usage statistics for a completed dictation."""
+        try:
+            from dictate.stats import UsageStats
+            audio_seconds = len(audio) / 16_000  # 16kHz sample rate
+            style = self._prefs.writing_style if self._prefs else "clean"
+            stats = UsageStats.load()
+            stats.record_dictation(text, audio_seconds=audio_seconds, style=style)
+            stats.save()
+        except Exception:
+            logger.debug("Failed to record stats", exc_info=True)
 
     def _emit_output(self, text: str) -> None:
         self._aggregator.append(text)

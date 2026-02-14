@@ -2082,3 +2082,121 @@ class TestCheckForUpdateR4:
 
         # Should NOT have sent notification since we're on newer version
         _mock_rumps.notification.assert_not_called()
+
+
+class TestRecordStats:
+    """Tests for the _record_stats integration in _process_chunk."""
+
+    def test_stats_recorded_on_success(self, mock_app, tmp_path, monkeypatch):
+        """Stats are recorded after a successful dictation."""
+        import dictate.stats as stats_mod
+        stats_dir = tmp_path / "Stats"
+        stats_dir.mkdir()
+        stats_file = stats_dir / "stats.json"
+        monkeypatch.setattr(stats_mod, "STATS_DIR", stats_dir)
+        monkeypatch.setattr(stats_mod, "STATS_FILE", stats_file)
+
+        mock_app._prefs = MagicMock()
+        mock_app._prefs.writing_style = "formal"
+        audio = np.zeros(32000, dtype=np.int16)  # 2 seconds at 16kHz
+        mock_app._record_stats("Hello world test", audio)
+
+        # Verify stats were saved
+        from dictate.stats import UsageStats
+        loaded = UsageStats.load()
+        assert loaded.total_dictations == 1
+        assert loaded.total_words == 3
+        assert loaded.total_audio_seconds == pytest.approx(2.0, abs=0.1)
+        assert loaded.styles_used == {"formal": 1}
+
+    def test_stats_accumulate(self, mock_app, tmp_path, monkeypatch):
+        """Multiple dictations accumulate stats."""
+        import dictate.stats as stats_mod
+        stats_dir = tmp_path / "Stats"
+        stats_dir.mkdir()
+        stats_file = stats_dir / "stats.json"
+        monkeypatch.setattr(stats_mod, "STATS_DIR", stats_dir)
+        monkeypatch.setattr(stats_mod, "STATS_FILE", stats_file)
+
+        mock_app._prefs = MagicMock()
+        mock_app._prefs.writing_style = "clean"
+        audio = np.zeros(16000, dtype=np.int16)  # 1 second
+
+        mock_app._record_stats("One", audio)
+        mock_app._record_stats("Two three", audio)
+
+        from dictate.stats import UsageStats
+        loaded = UsageStats.load()
+        assert loaded.total_dictations == 2
+        assert loaded.total_words == 3
+
+    def test_stats_failure_doesnt_crash(self, mock_app):
+        """Stats recording failure doesn't crash the app."""
+        mock_app._prefs = MagicMock()
+        mock_app._prefs.writing_style = "clean"
+        audio = np.zeros(100, dtype=np.int16)
+
+        # Mock the stats module to raise an error
+        with patch("dictate.stats.UsageStats.load", side_effect=Exception("disk error")):
+            # Should NOT raise — error is caught silently
+            mock_app._record_stats("test", audio)
+
+    def test_process_chunk_calls_record_stats(self, mock_app, tmp_path, monkeypatch):
+        """_process_chunk calls _record_stats when text is produced."""
+        import dictate.stats as stats_mod
+        stats_dir = tmp_path / "Stats"
+        stats_dir.mkdir()
+        stats_file = stats_dir / "stats.json"
+        monkeypatch.setattr(stats_mod, "STATS_DIR", stats_dir)
+        monkeypatch.setattr(stats_mod, "STATS_FILE", stats_file)
+
+        mock_app._pipeline = MagicMock()
+        mock_app._pipeline.process.return_value = "Hello world"
+        mock_app._pipeline.last_cleanup_failed = False
+        mock_app._prefs = MagicMock()
+        mock_app._prefs.writing_style = "bullets"
+
+        with patch.object(mock_app, "_emit_output"):
+            mock_app._process_chunk(np.zeros(48000, dtype=np.int16))  # 3 seconds
+
+        from dictate.stats import UsageStats
+        loaded = UsageStats.load()
+        assert loaded.total_dictations == 1
+        assert loaded.total_words == 2
+        assert loaded.total_audio_seconds == pytest.approx(3.0, abs=0.1)
+        assert loaded.styles_used == {"bullets": 1}
+
+    def test_no_stats_on_empty_result(self, mock_app, tmp_path, monkeypatch):
+        """No stats recorded when pipeline returns empty/None."""
+        import dictate.stats as stats_mod
+        stats_dir = tmp_path / "Stats"
+        stats_dir.mkdir()
+        stats_file = stats_dir / "stats.json"
+        monkeypatch.setattr(stats_mod, "STATS_DIR", stats_dir)
+        monkeypatch.setattr(stats_mod, "STATS_FILE", stats_file)
+
+        mock_app._pipeline = MagicMock()
+        mock_app._pipeline.process.return_value = None
+
+        mock_app._process_chunk(np.zeros(16000, dtype=np.int16))
+
+        from dictate.stats import UsageStats
+        loaded = UsageStats.load()
+        assert loaded.total_dictations == 0
+
+    def test_no_prefs_defaults_to_clean(self, mock_app, tmp_path, monkeypatch):
+        """When prefs is None, style defaults to 'clean'."""
+        import dictate.stats as stats_mod
+        stats_dir = tmp_path / "Stats"
+        stats_dir.mkdir()
+        stats_file = stats_dir / "stats.json"
+        monkeypatch.setattr(stats_mod, "STATS_DIR", stats_dir)
+        monkeypatch.setattr(stats_mod, "STATS_FILE", stats_file)
+
+        mock_app._prefs = None
+        audio = np.zeros(16000, dtype=np.int16)
+        mock_app._record_stats("test", audio)
+
+        from dictate.stats import UsageStats
+        loaded = UsageStats.load()
+        assert loaded.styles_used == {"clean": 1}
