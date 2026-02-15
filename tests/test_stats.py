@@ -280,3 +280,22 @@ class TestStatsFilePermissions:
         stats.save()
         mode = stats_file.stat().st_mode & 0o777
         assert mode == 0o600  # owner read/write only
+
+    def test_save_handles_os_error(self, _isolate_stats, monkeypatch):
+        """save() should not raise even if write fails."""
+        from dictate.stats import UsageStats
+        stats = UsageStats()
+        stats.record_dictation("test")
+        # Make STATS_FILE point to a non-writable location
+        monkeypatch.setattr("dictate.stats.STATS_FILE", Path("/nonexistent/dir/stats.json"))
+        stats.save()  # Should not raise
+
+    def test_reset_handles_os_error(self, _isolate_stats, monkeypatch):
+        """reset() should not raise even if unlink fails."""
+        from dictate.stats import UsageStats
+        stats = UsageStats()
+        stats.record_dictation("test")
+        stats.save()
+        # Make unlink fail by pointing to a non-existent file
+        monkeypatch.setattr("dictate.stats.STATS_FILE", Path("/nonexistent/dir/stats.json"))
+        UsageStats.reset()  # Should not raise
