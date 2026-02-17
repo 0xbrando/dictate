@@ -594,6 +594,13 @@ class TranscriptionPipeline:
         logger.info("Transcribed in %.1fs (%d words)", t1 - t0, word_count)
         logger.debug("Transcription text: %s...", raw_text[:80] if len(raw_text) > 80 else raw_text)
 
+        # Raw mode: bypass LLM cleanup entirely, return transcription as-is
+        if self._llm_config.writing_style == "raw":
+            logger.info("Raw mode — skipping LLM cleanup")
+            if self._is_duplicate(raw_text):
+                return None
+            return raw_text
+
         # Smart skip: if LLM is enabled but text already looks clean,
         # skip the expensive LLM round-trip. Translation mode always
         # runs through LLM since it needs to translate.

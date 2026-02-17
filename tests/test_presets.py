@@ -256,3 +256,90 @@ class TestDictionaryPersistence:
 
         loaded = Preferences.load_dictionary()
         assert loaded == ["A", "B"]
+
+
+class TestPrefsEdgeCases:
+    """Cover remaining uncovered lines in presets.py."""
+
+    def test_save_handles_os_error(self, tmp_path, monkeypatch):
+        """save() should not raise on write failure."""
+        from dictate.presets import Preferences
+        prefs = Preferences()
+        monkeypatch.setattr("dictate.presets.PREFS_FILE", Path("/nonexistent/stats.json"))
+        prefs.save()  # Should not raise
+
+    def test_detect_chip_exception(self, monkeypatch):
+        """detect_chip should return 'Unknown' on failure."""
+        from dictate.presets import detect_chip
+        import subprocess
+        monkeypatch.setattr(
+            subprocess, "check_output",
+            lambda *a, **kw: (_ for _ in ()).throw(Exception("no sysctl")),
+        )
+        result = detect_chip()
+        assert result == "Unknown"
+
+    def test_is_safe_api_url_invalid(self):
+        """_is_safe_api_url should handle invalid URLs gracefully."""
+        from dictate.presets import Preferences
+        # Should return False for clearly invalid URLs
+        assert Preferences._is_safe_api_url("not-a-url") is False
+        assert Preferences._is_safe_api_url("ftp://localhost:8080") is False
+        # Should return True for localhost
+        assert Preferences._is_safe_api_url("http://localhost:8080/v1") is True
+        assert Preferences._is_safe_api_url("http://127.0.0.1:8080") is True
+
+    def test_load_v1_migration_quality_preset(self, tmp_path, monkeypatch):
+        """Load v1 preferences — quality_preset migrates from v1."""
+        from dictate.presets import Preferences
+        prefs_dir = tmp_path / "Dictate"
+        prefs_dir.mkdir()
+        prefs_file = prefs_dir / "preferences.json"
+        dict_file = prefs_dir / "dictionary.json"
+        monkeypatch.setattr("dictate.presets.PREFS_DIR", prefs_dir)
+        monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_file)
+        monkeypatch.setattr("dictate.presets.DICTIONARY_FILE", dict_file)
+        # v1 uses _prefs_version=1; quality_preset 1 → 1+1=2
+        prefs_file.write_text(json.dumps({
+            "_prefs_version": 1,
+            "quality_preset": 1,
+            "stt_preset": 0,
+        }))
+        loaded = Preferences.load()
+        assert loaded.quality_preset == 2
+
+    def test_load_v2_migration_high_quality_preset(self, tmp_path, monkeypatch):
+        """Load v2 preferences with high quality preset index."""
+        from dictate.presets import Preferences
+        prefs_dir = tmp_path / "Dictate"
+        prefs_dir.mkdir()
+        prefs_file = prefs_dir / "preferences.json"
+        dict_file = prefs_dir / "dictionary.json"
+        monkeypatch.setattr("dictate.presets.PREFS_DIR", prefs_dir)
+        monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_file)
+        monkeypatch.setattr("dictate.presets.DICTIONARY_FILE", dict_file)
+        # v2 uses _prefs_version=2; quality_preset 3 (>=2) → 3-1=2
+        prefs_file.write_text(json.dumps({
+            "_prefs_version": 2,
+            "quality_preset": 3,
+        }))
+        loaded = Preferences.load()
+        assert loaded.quality_preset == 2
+
+    def test_load_v2_migration_low_quality_preset(self, tmp_path, monkeypatch):
+        """Load v2 preferences with low quality preset (0.5B→1.5B)."""
+        from dictate.presets import Preferences
+        prefs_dir = tmp_path / "Dictate"
+        prefs_dir.mkdir()
+        prefs_file = prefs_dir / "preferences.json"
+        dict_file = prefs_dir / "dictionary.json"
+        monkeypatch.setattr("dictate.presets.PREFS_DIR", prefs_dir)
+        monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_file)
+        monkeypatch.setattr("dictate.presets.DICTIONARY_FILE", dict_file)
+        # v2: quality_preset 1 (<=1) → max(0, 1) = 1
+        prefs_file.write_text(json.dumps({
+            "_prefs_version": 2,
+            "quality_preset": 1,
+        }))
+        loaded = Preferences.load()
+        assert loaded.quality_preset == 1
