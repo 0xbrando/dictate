@@ -71,6 +71,7 @@ class WhisperTranscriber:
                 "Install it with: pip install mlx-whisper"
             )
         import numpy as np
+
         silent_audio = np.zeros(16000, dtype=np.int16)
 
         with _temp_wav_context(silent_audio, 16000) as wav_path:
@@ -107,7 +108,6 @@ class WhisperTranscriber:
             return str(text) if isinstance(text, str) else ""
 
 
-
 def _dedup_transcription(text: str) -> str:
     """Remove repeated phrases from transcription output.
 
@@ -122,7 +122,7 @@ def _dedup_transcription(text: str) -> str:
     # Check if the text is a repeated phrase (exact duplicate)
     half = n // 2
     first_half = " ".join(words[:half])
-    second_half = " ".join(words[half:half * 2])
+    second_half = " ".join(words[half : half * 2])
     if first_half.lower() == second_half.lower():
         logger.info("Deduped repeated transcription: %d words → %d", n, half)
         return " ".join(words[:half])
@@ -242,7 +242,7 @@ def _postprocess(text: str) -> str:
 
     for preamble in preambles:
         if text_lower.startswith(preamble.lower()):
-            text = text[len(preamble):].strip()
+            text = text[len(preamble) :].strip()
             text_lower = text.lower()
 
     if len(text) >= 2 and text.startswith('"') and text.endswith('"'):
@@ -250,7 +250,7 @@ def _postprocess(text: str) -> str:
     if len(text) >= 2 and text.startswith("'") and text.endswith("'"):
         text = text[1:-1]
 
-    text = text.lstrip('\n')
+    text = text.lstrip("\n")
 
     lines = text.split("\n")
     if not lines:
@@ -280,6 +280,7 @@ class TextCleaner:
             return
 
         from mlx_lm import load
+
         print(f"   LLM: {self._config.model}...", end=" ", flush=True)
         self._model, self._tokenizer = load(self._config.model)
         print("✓")
@@ -300,7 +301,9 @@ class TextCleaner:
             {"role": "user", "content": text},
         ]
         prompt = self._tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
         )
 
         input_words = len(text.split())
@@ -308,8 +311,11 @@ class TextCleaner:
         sampler = make_sampler(temp=self._config.temperature)
 
         result = generate(
-            self._model, self._tokenizer,
-            prompt=prompt, max_tokens=max_tokens, sampler=sampler,
+            self._model,
+            self._tokenizer,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            sampler=sampler,
         )
         logger.debug("LLM raw result: %r", result[:100] if len(result) > 100 else result)
         return _postprocess(result.strip())
@@ -345,15 +351,17 @@ class APITextCleaner:
         input_words = len(text.split())
         max_tokens = min(self._config.max_tokens, max(50, input_words * 3))
 
-        payload = json.dumps({
-            "model": "default",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text},
-            ],
-            "max_tokens": max_tokens,
-            "temperature": self._config.temperature,
-        }).encode()
+        payload = json.dumps(
+            {
+                "model": "default",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
+                "max_tokens": max_tokens,
+                "temperature": self._config.temperature,
+            }
+        ).encode()
 
         req = urllib.request.Request(
             self._config.api_url,
@@ -369,6 +377,7 @@ class APITextCleaner:
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             logger.warning("API %s: %s, retrying...", type(e).__name__, e)
             import time
+
             time.sleep(0.5)
             try:
                 with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
@@ -396,8 +405,16 @@ class APITextCleaner:
 # ── Smart skip heuristic ──────────────────────────────────────────
 
 _FILLER_STARTS = (
-    "um ", "uh ", "er ", "ah ", "like ", "you know",
-    "basically ", "i mean ", "so ", "well ",
+    "um ",
+    "uh ",
+    "er ",
+    "ah ",
+    "like ",
+    "you know",
+    "basically ",
+    "i mean ",
+    "so ",
+    "well ",
 )
 
 
@@ -422,7 +439,7 @@ def _looks_clean(text: str) -> bool:
             return False
 
     # 4+ words need ending punctuation to look "clean"
-    if len(words) >= 4 and text[-1] not in '.!?,;:':
+    if len(words) >= 4 and text[-1] not in ".!?,;:":
         return False
 
     return True
@@ -445,7 +462,9 @@ class TranscriptionPipeline:
         from dictate.config import LLMBackend, STTEngine
 
         if whisper_config.engine == STTEngine.PARAKEET:
-            self._whisper: WhisperTranscriber | ParakeetTranscriber = ParakeetTranscriber(whisper_config)
+            self._whisper: WhisperTranscriber | ParakeetTranscriber = ParakeetTranscriber(
+                whisper_config
+            )
         else:
             self._whisper = WhisperTranscriber(whisper_config)
         if llm_config.backend == LLMBackend.API:
@@ -467,8 +486,14 @@ class TranscriptionPipeline:
         if llm_config.backend != LLMBackend.API:
             return None
 
-        # Pick the fastest cached local model
-        for model in [LLMModel.QWEN_1_5B, LLMModel.QWEN, LLMModel.QWEN_7B]:
+        # Pick the fastest cached local model (Qwen3 first - newer architecture, ~20% faster)
+        for model in [
+            LLMModel.QWEN3_0_6B,
+            LLMModel.QWEN3_1_5B,
+            LLMModel.QWEN_1_5B,
+            LLMModel.QWEN,
+            LLMModel.QWEN_7B,
+        ]:
             if is_model_cached(model.hf_repo):
                 fast_config = LLMConfig(
                     enabled=llm_config.enabled,
@@ -490,6 +515,7 @@ class TranscriptionPipeline:
     def _is_duplicate(self, text: str) -> bool:
         """Check if text matches the last output within the dedup window."""
         import time as _time
+
         now = _time.time()
         if (
             self._last_output
@@ -506,54 +532,54 @@ class TranscriptionPipeline:
         """Preload all models with detailed progress reporting."""
         from dictate.config import is_model_cached
         from dictate.model_download import download_model
-        
+
         # Download Whisper if needed with progress
         whisper_cached = is_model_cached(self._whisper._config.model)
         if not whisper_cached:
             if on_progress:
                 on_progress("Downloading Whisper model...")
-            
+
             def whisper_progress(percent: float) -> None:
                 if on_progress:
                     on_progress(f"Downloading Whisper ({int(percent)}%)...")
-            
+
             try:
                 download_model(self._whisper._config.model, progress_callback=whisper_progress)
             except Exception:
                 logger.exception("Failed to download Whisper model")
                 raise
-        
+
         if on_progress:
             on_progress("Loading Whisper...")
         self._whisper.load_model()
-        
+
         # Load fast cleaner if configured
         if self._fast_cleaner:
             if on_progress:
                 on_progress("Loading fast local model...")
             self._fast_cleaner.load_model()
-        
+
         # Get LLM model info
         llm_model = getattr(self._cleaner, "_config", None)
         llm_repo = llm_model.model if llm_model else ""
-        
+
         # Download LLM if needed with progress
         if llm_repo and not isinstance(self._cleaner, APITextCleaner):
             llm_cached = is_model_cached(llm_repo)
             if not llm_cached:
                 if on_progress:
                     on_progress("Downloading LLM model...")
-                
+
                 def llm_progress(percent: float) -> None:
                     if on_progress:
                         on_progress(f"Downloading LLM ({int(percent)}%)...")
-                
+
                 try:
                     download_model(llm_repo, progress_callback=llm_progress)
                 except Exception:
                     logger.exception("Failed to download LLM model")
                     raise
-        
+
         # Load the main cleaner
         if isinstance(self._cleaner, APITextCleaner):
             if on_progress:
@@ -604,9 +630,8 @@ class TranscriptionPipeline:
         # Smart skip: if LLM is enabled but text already looks clean,
         # skip the expensive LLM round-trip. Translation mode always
         # runs through LLM since it needs to translate.
-        needs_translation = (
-            output_language is not None
-            or (self._llm_config.output_language is not None)
+        needs_translation = output_language is not None or (
+            self._llm_config.output_language is not None
         )
         if (
             self._llm_config.enabled
@@ -637,8 +662,15 @@ class TranscriptionPipeline:
             return None
 
         if cleaned_text != raw_text:
-            logger.info("Cleaned via %s in %.0fms (%d words)", route, (t3 - t2) * 1000, len(cleaned_text.split()))
-            logger.debug("Cleaned text: %s...", cleaned_text[:80] if len(cleaned_text) > 80 else cleaned_text)
+            logger.info(
+                "Cleaned via %s in %.0fms (%d words)",
+                route,
+                (t3 - t2) * 1000,
+                len(cleaned_text.split()),
+            )
+            logger.debug(
+                "Cleaned text: %s...", cleaned_text[:80] if len(cleaned_text) > 80 else cleaned_text
+            )
         else:
             logger.info("No changes needed via %s (%.0fms)", route, (t3 - t2) * 1000)
 

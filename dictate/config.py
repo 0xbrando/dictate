@@ -37,6 +37,9 @@ class LLMModel(str, Enum):
     QWEN = "qwen"
     QWEN_7B = "qwen-7b"
     QWEN_14B = "qwen-14b"
+    # Qwen3 models - newer architecture, better efficiency
+    QWEN3_0_6B = "qwen3-0.6b"
+    QWEN3_1_5B = "qwen3-1.5b"
 
     @property
     def hf_repo(self) -> str:
@@ -46,15 +49,22 @@ class LLMModel(str, Enum):
             LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
             LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
             LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
+            # Qwen3 models - newer architecture, ~20% faster than Qwen2.5
+            LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-Instruct-4bit",
+            LLMModel.QWEN3_1_5B: "mlx-community/Qwen3-1.5B-Instruct-4bit",
         }
         return repos.get(self, repos[LLMModel.QWEN])
 
 
+# STT Models
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
+PARAKEET_V2_MODEL = "mlx-community/parakeet-tdt-0.6b-v2"  # English only
+PARAKEET_V3_MODEL = "mlx-community/parakeet-tdt-0.6b-v3"  # 25 European languages, same speed
 
 
 def is_model_cached(hf_repo: str) -> bool:
     from pathlib import Path
+
     cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
     model_dir = cache_dir / f"models--{hf_repo.replace('/', '--')}" / "snapshots"
     return model_dir.is_dir() and any(model_dir.iterdir())
@@ -70,6 +80,7 @@ def get_model_size_str(hf_repo: str) -> str:
         Size string like '1.8GB' or 'Unknown'
     """
     from dictate.model_download import get_model_size
+
     return get_model_size(hf_repo)
 
 
@@ -225,6 +236,9 @@ class LLMConfig:
             LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
             LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
             LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
+            # Qwen3 models - newer architecture, ~20% faster than Qwen2.5
+            LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-Instruct-4bit",
+            LLMModel.QWEN3_1_5B: "mlx-community/Qwen3-1.5B-Instruct-4bit",
         }
         return models.get(self.model_choice, models[LLMModel.QWEN])
 
@@ -319,6 +333,7 @@ class LLMConfig:
             "'add a greeting'. Output ONLY the final text, no explanations."
         )
 
+
 @dataclass
 class KeybindConfig:
     ptt_key: "Key" = field(default_factory=lambda: keyboard.Key.ctrl_l)
@@ -353,6 +368,7 @@ class Config:
                 config.whisper.model = whisper_model
             else:
                 import logging as _log
+
                 _log.getLogger(__name__).warning(
                     "Ignoring DICTATE_WHISPER_MODEL=%s — only mlx-community/ repos allowed",
                     whisper_model,
@@ -376,14 +392,22 @@ class Config:
             try:
                 config.llm.model_choice = LLMModel(llm_model.lower())
             except ValueError:
-                logger.warning("Invalid DICTATE_LLM_MODEL=%r, using default %r", llm_model, config.llm.model_choice)
+                logger.warning(
+                    "Invalid DICTATE_LLM_MODEL=%r, using default %r",
+                    llm_model,
+                    config.llm.model_choice,
+                )
 
         # LLM backend (local or api)
         if llm_backend := os.environ.get("DICTATE_LLM_BACKEND"):
             try:
                 config.llm.backend = LLMBackend(llm_backend.lower())
             except ValueError:
-                logger.warning("Invalid DICTATE_LLM_BACKEND=%r, using default %r", llm_backend, config.llm.backend)
+                logger.warning(
+                    "Invalid DICTATE_LLM_BACKEND=%r, using default %r",
+                    llm_backend,
+                    config.llm.backend,
+                )
 
         # LLM API URL (for api backend)
         if api_url := os.environ.get("DICTATE_LLM_API_URL"):
