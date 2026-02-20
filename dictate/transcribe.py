@@ -196,7 +196,10 @@ def _postprocess(text: str) -> str:
     for token in special_tokens:
         text = text.replace(token, "")
     # Strip <think>...</think> blocks from reasoning models (Qwen3, DeepSeek R1)
+    # Handle both closed and incomplete think blocks
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    # Also strip incomplete think blocks (when max_tokens cuts off generation)
+    text = re.sub(r"<think>.*", "", text, flags=re.DOTALL)
     text = text.strip()
     text_lower = text.lower()
 
@@ -486,10 +489,8 @@ class TranscriptionPipeline:
         if llm_config.backend != LLMBackend.API:
             return None
 
-        # Pick the fastest cached local model (Qwen3 first - newer architecture, ~20% faster)
+        # Pick the fastest cached local model
         for model in [
-            LLMModel.QWEN3_0_6B,
-            LLMModel.QWEN3_1_5B,
             LLMModel.QWEN_1_5B,
             LLMModel.QWEN,
             LLMModel.QWEN_7B,

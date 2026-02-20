@@ -37,9 +37,6 @@ class LLMModel(str, Enum):
     QWEN = "qwen"
     QWEN_7B = "qwen-7b"
     QWEN_14B = "qwen-14b"
-    # Qwen3 models - newer architecture, better efficiency
-    QWEN3_0_6B = "qwen3-0.6b"
-    QWEN3_1_5B = "qwen3-1.5b"
 
     @property
     def hf_repo(self) -> str:
@@ -49,9 +46,6 @@ class LLMModel(str, Enum):
             LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
             LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
             LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
-            # Qwen3 models - newer architecture, ~20% faster than Qwen2.5
-            LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-Instruct-4bit",
-            LLMModel.QWEN3_1_5B: "mlx-community/Qwen3-1.5B-Instruct-4bit",
         }
         return repos.get(self, repos[LLMModel.QWEN])
 
@@ -236,9 +230,6 @@ class LLMConfig:
             LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
             LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
             LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
-            # Qwen3 models - newer architecture, ~20% faster than Qwen2.5
-            LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-Instruct-4bit",
-            LLMModel.QWEN3_1_5B: "mlx-community/Qwen3-1.5B-Instruct-4bit",
         }
         return models.get(self.model_choice, models[LLMModel.QWEN])
 
