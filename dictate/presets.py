@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 
 # ── Hardware detection ─────────────────────────────────────────
 
+
 def detect_chip() -> str:
     """Detect Apple Silicon chip family (e.g. 'M1', 'M2', 'M3', 'M4', 'M5', 'Ultra')."""
     try:
         raw = subprocess.check_output(
             ["sysctl", "-n", "machdep.cpu.brand_string"],
-            text=True, timeout=2,
+            text=True,
+            timeout=2,
         ).strip()
         # e.g. "Apple M2", "Apple M3 Pro", "Apple M4 Ultra"
         return raw.replace("Apple ", "")
@@ -167,7 +169,7 @@ STT_PRESETS: list[STTPreset] = [
         label="Parakeet (default)",
         engine=STTEngine.PARAKEET,
         model="mlx-community/parakeet-tdt-0.6b-v3",
-        description="English, fastest",
+        description="25 languages, fastest",
     ),
     STTPreset(
         label="Whisper",
@@ -368,9 +370,14 @@ class Preferences:
             # Apply same localhost safety check as legacy path
             if not self._is_safe_api_url(url):
                 if os.environ.get("DICTATE_ALLOW_REMOTE_API") == "1":
-                    logger.warning("Remote API endpoint allowed via DICTATE_ALLOW_REMOTE_API: %s", endpoint)
+                    logger.warning(
+                        "Remote API endpoint allowed via DICTATE_ALLOW_REMOTE_API: %s", endpoint
+                    )
                 else:
-                    logger.warning("Blocked non-localhost endpoint: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)", endpoint)
+                    logger.warning(
+                        "Blocked non-localhost endpoint: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)",
+                        endpoint,
+                    )
                     return "http://localhost:8005/v1/chat/completions"
             return url
 
@@ -380,12 +387,16 @@ class Preferences:
         if os.environ.get("DICTATE_ALLOW_REMOTE_API") == "1":
             logger.warning("Remote API URL allowed via DICTATE_ALLOW_REMOTE_API: %s", self.api_url)
             return self.api_url
-        logger.warning("Blocked non-localhost API URL: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)", self.api_url)
+        logger.warning(
+            "Blocked non-localhost API URL: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)",
+            self.api_url,
+        )
         return "http://localhost:8005/v1/chat/completions"
 
     @property
     def ptt_pynput_key(self) -> "Key":
         from pynput import keyboard
+
         key_map = {
             "ctrl_l": keyboard.Key.ctrl_l,
             "ctrl_r": keyboard.Key.ctrl_r,
@@ -400,6 +411,7 @@ class Preferences:
         if self.command_key == "none":
             return None
         from pynput import keyboard
+
         key_map = {
             "ctrl_l": keyboard.Key.ctrl_l,
             "ctrl_r": keyboard.Key.ctrl_r,
