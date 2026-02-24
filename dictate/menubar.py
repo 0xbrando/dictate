@@ -992,6 +992,9 @@ class DictateMenuBarApp(rumps.App):
                 self._config.tones.start_hz,
                 self._config.audio.sample_rate,
             )
+        except Exception:
+            logger.warning("Start tone failed, continuing without sound")
+        try:
             self._audio.start()
         except Exception:
             logger.exception("Failed to start recording")
@@ -1004,11 +1007,14 @@ class DictateMenuBarApp(rumps.App):
     def _stop_recording(self) -> None:
         if self._audio is None or not self._audio.is_recording:
             return
-        play_tone(
-            self._config.tones,
-            self._config.tones.stop_hz,
-            self._config.audio.sample_rate,
-        )
+        try:
+            play_tone(
+                self._config.tones,
+                self._config.tones.stop_hz,
+                self._config.audio.sample_rate,
+            )
+        except Exception:
+            logger.warning("Stop tone failed, continuing")
         duration = self._audio.stop()
         self._is_recording = False
         self._post_ui("icon", "idle")
