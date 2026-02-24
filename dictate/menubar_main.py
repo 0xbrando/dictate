@@ -858,17 +858,24 @@ def main() -> int:
         from_github = "--github" in sys.argv
         return _run_update(check_only=check_only, from_github=from_github)
     
-    # Daemonize before anything else — detach from terminal
+    # Show banner by writing directly to /dev/tty so it always appears in the
+    # terminal even when stdout/stderr are redirected (e.g. via nohup).
     foreground = "--foreground" in sys.argv or "-f" in sys.argv
-    if not foreground and sys.stdin is not None and hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
-        from dictate import __version__
-        Y = "\033[33m"    # yellow/dark orange
-        O = "\033[93m"    # bright yellow/orange
-        W = "\033[97m"    # bright white
-        D = "\033[2m"     # dim
-        B = "\033[1m"     # bold
-        R = "\033[0m"     # reset
-        print(f"""
+    try:
+        _tty = open("/dev/tty", "w")
+    except OSError:
+        _tty = None
+
+    if _tty is not None:
+        try:
+            from dictate import __version__
+            Y = "\033[33m"    # yellow/dark orange
+            O = "\033[93m"    # bright yellow/orange
+            W = "\033[97m"    # bright white
+            D = "\033[2m"     # dim
+            B = "\033[1m"     # bold
+            R = "\033[0m"     # reset
+            _tty.write(f"""
 {O}       ___      __        __
 {O}  ____/ (_)____/ /_____ _/ /____
 {Y} / __  / / ___/ __/ __ `/ __/ _ \\
@@ -898,7 +905,15 @@ def main() -> int:
   {O}dictate{R}          {D}launch dictate{R}
   {O}dictate update{R}   {D}update to the latest version{R}
   {O}dictate -f{R}       {D}run in foreground (debug){R}
-""", flush=True)
+""")
+            _tty.flush()
+        except Exception:
+            pass
+        finally:
+            _tty.close()
+
+    # Daemonize if not already in foreground mode
+    if not foreground:
         _daemonize()
 
     setup_logging()
