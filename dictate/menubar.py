@@ -899,6 +899,13 @@ class DictateMenuBarApp(rumps.App):
     # ── Lifecycle ──────────────────────────────────────────────────
 
     def start_app(self) -> None:
+        # Set as background-only (accessory) app — no Dock icon, proper menu bar behavior
+        try:
+            from AppKit import NSApplication
+            NSApplication.sharedApplication().setActivationPolicy_(2)  # NSApplicationActivationPolicyAccessory
+        except Exception:
+            logger.warning("Could not set activation policy to Accessory")
+
         init_thread = threading.Thread(target=self._init_pipeline, daemon=True)
         init_thread.start()
         self._start_keyboard_listener()
