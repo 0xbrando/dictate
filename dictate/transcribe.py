@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 API_TIMEOUT_SECONDS = 15
+LOCAL_LLM_TIMEOUT_SECONDS = 10
 
 
 @contextlib.contextmanager
@@ -277,6 +278,7 @@ class TextCleaner:
         self._config = config
         self._model = None
         self._tokenizer = None
+        self._last_cleanup_failed = False
 
     def load_model(self) -> None:
         if self._model is not None:
@@ -313,13 +315,31 @@ class TextCleaner:
         max_tokens = min(self._config.max_tokens, max(50, input_words * 3))
         sampler = make_sampler(temp=self._config.temperature)
 
-        result = generate(
-            self._model,
-            self._tokenizer,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            sampler=sampler,
-        )
+        result_box: list[str] = []
+
+        def _run_generate() -> None:
+            result_box.append(
+                generate(
+                    self._model,
+                    self._tokenizer,
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    sampler=sampler,
+                )
+            )
+
+        thread = threading.Thread(target=_run_generate, daemon=True)
+        thread.start()
+        thread.join(timeout=LOCAL_LLM_TIMEOUT_SECONDS)
+
+        if not result_box:
+            logger.warning(
+                "Local LLM timed out after %ds, returning raw text", LOCAL_LLM_TIMEOUT_SECONDS
+            )
+            self._last_cleanup_failed = True
+            return text
+
+        result = result_box[0]
         logger.debug("LLM raw result: %r", result[:100] if len(result) > 100 else result)
         return _postprocess(result.strip())
 
