@@ -4,9 +4,7 @@ Dictate - Push-to-Talk Voice Dictation for macOS
 A local, privacy-first voice dictation menu bar app using Apple Silicon MLX models.
 """
 
-__version__ = "2.4.1"
+__version__ = "2.5.0"
 __author__ = "brando"
 
-from dictate.config import Config
-
-__all__ = ["Config", "__version__"]
+__all__ = ["__version__"]

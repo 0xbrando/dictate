@@ -41,7 +41,10 @@ from dictate.presets import (
     Preferences,
 )
 from dictate.transcribe import TranscriptionPipeline
-from dictate import __version__ as DICTATE_VERSION
+try:
+    from dictate import __version__ as DICTATE_VERSION
+except ImportError:
+    DICTATE_VERSION = "0.0.0"
 
 try:
     from packaging.version import Version as parse_version
@@ -64,7 +67,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-KEYBOARD_RELEASE_DELAY_SECONDS = 0.05
+KEYBOARD_RELEASE_DELAY_SECONDS = 0.05  # Legacy, kept for test import
+PTT_DEBOUNCE_S = 0.08  # Absorb macOS modifier double-fire events
 SHUTDOWN_TIMEOUT_SECONDS = 2.0
 MAX_NOTIFICATION_LENGTH = 120
 MAX_RECENT_ITEMS = 10
@@ -103,6 +107,7 @@ class DictateMenuBarApp(rumps.App):
         self._recording_locked = False
         self._ptt_held = False
         self._is_recording = False
+        self._last_ptt_event: float = 0.0
         self._paused = False
         self._rms_history: deque[float] = deque([0.0] * 5, maxlen=5)
 
@@ -389,6 +394,9 @@ class DictateMenuBarApp(rumps.App):
         for i, preset in enumerate(STT_PRESETS):
             # Only show Parakeet if the package is installed
             if preset.engine == STTEngine.PARAKEET:
+                from dictate.mlx_check import is_mlx_available
+                if not is_mlx_available():
+                    continue
                 try:
                     import parakeet_mlx  # noqa: F401
                 except ImportError:
@@ -932,6 +940,13 @@ class DictateMenuBarApp(rumps.App):
         except ImportError as e:
             logger.error("Missing dependency: %s", e)
             self._post_ui("status", f"Missing package: {e.name or e}")
+        except RuntimeError as e:
+            if "MLX" in str(e):
+                logger.error("MLX unavailable: %s", e)
+                self._post_ui("status", "MLX unavailable — use API mode")
+            else:
+                logger.exception("Failed to initialize pipeline")
+                self._post_ui("status", "Model load failed")
         except Exception:
             logger.exception("Failed to initialize pipeline")
             self._post_ui("status", "Model load failed")
@@ -956,10 +971,13 @@ class DictateMenuBarApp(rumps.App):
             if self._paused:
                 return
             if key == self._config.keybinds.ptt_key:
+                now = time.monotonic()
+                if now - self._last_ptt_event < PTT_DEBOUNCE_S:
+                    return  # macOS modifier double-fire — ignore
+                self._last_ptt_event = now
                 self._ptt_held = True
                 if self._recording_locked:
                     self._recording_locked = False
-                    time.sleep(KEYBOARD_RELEASE_DELAY_SECONDS)
                     self._stop_recording()
                 else:
                     self._start_recording()
@@ -976,9 +994,12 @@ class DictateMenuBarApp(rumps.App):
 
         def on_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
             if key == self._config.keybinds.ptt_key:
+                now = time.monotonic()
+                if now - self._last_ptt_event < PTT_DEBOUNCE_S:
+                    return  # macOS modifier double-fire — ignore
+                self._last_ptt_event = now
                 self._ptt_held = False
                 if not self._recording_locked:
-                    time.sleep(KEYBOARD_RELEASE_DELAY_SECONDS)
                     self._stop_recording()
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)

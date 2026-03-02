@@ -183,11 +183,6 @@ STT_PRESETS: list[STTPreset] = [
 WRITING_STYLES: list[tuple[str, str, str]] = [
     ("clean", "Clean Up", "Fixes punctuation, keeps your words"),
     ("formal", "Formal", "Professional tone and grammar"),
-    ("bullets", "Bullet Points", "Distills into key points"),
-    ("email", "Email", "Professional email formatting"),
-    ("slack", "Slack / Chat", "Casual, concise, chat-friendly"),
-    ("technical", "Technical", "Precise technical documentation style"),
-    ("tweet", "Tweet", "Concise, under 280 characters"),
     ("raw", "Raw (No Cleanup)", "Exact transcription, no LLM processing"),
 ]
 

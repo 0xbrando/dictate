@@ -25,15 +25,23 @@ class TestBashCompletions:
     def test_bash_completion_has_config_keys(self):
         content = (COMPLETIONS_DIR / "dictate.bash").read_text()
         for key in [
-            "writing_style", "quality", "stt", "input_language",
-            "output_language", "ptt_key", "command_key", "llm_cleanup",
-            "sound", "llm_endpoint", "advanced_mode",
+            "writing_style",
+            "quality",
+            "stt",
+            "input_language",
+            "output_language",
+            "ptt_key",
+            "command_key",
+            "llm_cleanup",
+            "sound",
+            "llm_endpoint",
+            "advanced_mode",
         ]:
             assert key in content, f"Missing config key: {key}"
 
     def test_bash_completion_has_writing_styles(self):
         content = (COMPLETIONS_DIR / "dictate.bash").read_text()
-        for style in ["clean", "formal", "bullets", "email", "slack", "technical", "tweet", "raw"]:
+        for style in ["clean", "formal", "raw"]:
             assert style in content, f"Missing writing style: {style}"
 
     def test_bash_completion_has_quality_aliases(self):
@@ -70,7 +78,9 @@ class TestBashCompletions:
         bash_file = COMPLETIONS_DIR / "dictate.bash"
         result = subprocess.run(
             ["bash", "-n", str(bash_file)],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
 
@@ -112,27 +122,35 @@ class TestZshCompletions:
         # Writing styles should have descriptions
         assert "Fixes punctuation" in content
         assert "Professional tone" in content
-        assert "Distills into key points" in content
+        assert "Exact transcription" in content
 
     def test_zsh_completion_has_writing_styles(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()
-        for style in ["clean", "formal", "bullets", "email", "slack", "technical", "tweet", "raw"]:
+        for style in ["clean", "formal", "raw"]:
             assert style in content, f"Missing writing style: {style}"
 
     def test_zsh_completion_has_config_keys(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()
         for key in [
-            "writing_style", "quality", "stt", "input_language",
-            "output_language", "ptt_key", "command_key", "llm_cleanup",
-            "sound", "llm_endpoint", "advanced_mode",
+            "writing_style",
+            "quality",
+            "stt",
+            "input_language",
+            "output_language",
+            "ptt_key",
+            "command_key",
+            "llm_cleanup",
+            "sound",
+            "llm_endpoint",
+            "advanced_mode",
         ]:
             assert key in content, f"Missing config key: {key}"
 
     def test_zsh_completion_has_quality_descriptions(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()
         assert "1.5B" in content  # speedy
-        assert "3B" in content    # fast
-        assert "8B" in content    # quality
+        assert "3B" in content  # fast
+        assert "8B" in content  # quality
 
     def test_zsh_completion_has_language_descriptions(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()

@@ -7,11 +7,6 @@
 _dictate_writing_styles=(
     'clean:Fixes punctuation, keeps your words'
     'formal:Professional tone and grammar'
-    'bullets:Distills into key points'
-    'email:Professional email formatting'
-    'slack:Casual, concise, chat-friendly'
-    'technical:Precise technical documentation style'
-    'tweet:Concise, under 280 characters'
     'raw:Exact transcription, no LLM processing'
 )
 

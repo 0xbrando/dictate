@@ -128,11 +128,6 @@ class TestLLMConfig:
         prompt = c.get_system_prompt()
         assert "professional" in prompt.lower() or "formal" in prompt.lower()
 
-    def test_system_prompt_bullets(self):
-        c = LLMConfig(writing_style="bullets")
-        prompt = c.get_system_prompt()
-        assert "bullet" in prompt.lower()
-
     def test_system_prompt_translation(self):
         c = LLMConfig(writing_style="clean")
         prompt = c.get_system_prompt(output_language="es")
@@ -233,24 +228,28 @@ class TestAudioConfigValidation:
 
     def test_block_size_zero_raises(self):
         from dictate.config import AudioConfig
+
         c = AudioConfig(block_ms=0)
         with pytest.raises(ValueError, match="block_ms must be positive"):
             _ = c.block_size
 
     def test_block_size_negative_raises(self):
         from dictate.config import AudioConfig
+
         c = AudioConfig(block_ms=-5)
         with pytest.raises(ValueError, match="block_ms must be positive"):
             _ = c.block_size
 
     def test_block_size_normal(self):
         from dictate.config import AudioConfig
+
         c = AudioConfig(sample_rate=16000, block_ms=30)
         assert c.block_size == 480  # 16000 * 0.03
 
     def test_get_model_size_str(self):
         from dictate.config import get_model_size_str
         from unittest.mock import patch
+
         with patch("dictate.model_download.get_model_size", return_value="1.8GB"):
             result = get_model_size_str("mlx-community/Qwen2.5-3B-Instruct-4bit")
             assert result == "1.8GB"

@@ -301,11 +301,15 @@ def _show_status() -> int:
     print(f"  {st} Whisper: {WHISPER_MODEL} ({whisper_size})")
 
     # Check Parakeet
-    try:
-        import parakeet_mlx  # noqa: F401
-        print(f"  {G}✓{N} Parakeet: installed")
-    except ImportError:
-        print(f"  {D}○ Parakeet: not installed{N}")
+    from dictate.mlx_check import is_mlx_available
+    if not is_mlx_available():
+        print(f"  {Y}⚠{N} Parakeet: MLX unavailable (Metal GPU init failed)")
+    else:
+        try:
+            import parakeet_mlx  # noqa: F401
+            print(f"  {G}✓{N} Parakeet: installed")
+        except ImportError:
+            print(f"  {D}○ Parakeet: not installed{N}")
 
     # LLM models
     from dictate.config import LLMModel
@@ -474,11 +478,16 @@ def _run_doctor() -> int:
         warnings.append(f"Whisper model ({WHISPER_MODEL}) will download on first use (~1.5 GB)")
 
     # 6. Check Parakeet
-    try:
-        import parakeet_mlx  # noqa: F401
-        print(f"  {G}✓{N} Parakeet STT available")
-    except ImportError:
-        print(f"  {D}○{N} Parakeet not installed (optional — Whisper is default)")
+    from dictate.mlx_check import is_mlx_available
+    if not is_mlx_available():
+        print(f"  {Y}⚠{N} Parakeet: MLX unavailable (Metal GPU init failed)")
+        warnings.append("MLX cannot initialize Metal GPU — local STT/LLM disabled. Use API mode or check macOS compatibility.")
+    else:
+        try:
+            import parakeet_mlx  # noqa: F401
+            print(f"  {G}✓{N} Parakeet STT available")
+        except ImportError:
+            print(f"  {D}○{N} Parakeet not installed (optional — Whisper is default)")
 
     # 7. Check LLM endpoint (if configured for API mode)
     from dictate.presets import Preferences, PREFS_FILE

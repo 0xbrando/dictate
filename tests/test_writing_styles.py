@@ -29,24 +29,15 @@ class TestWritingStyles:
         assert len(keys) == len(set(keys))
 
     def test_default_styles_present(self):
-        """Original 3 styles still exist."""
+        """Core styles exist."""
         keys = [s[0] for s in WRITING_STYLES]
         assert "clean" in keys
         assert "formal" in keys
-        assert "bullets" in keys
-
-    def test_new_styles_present(self):
-        """New styles are registered."""
-        keys = [s[0] for s in WRITING_STYLES]
-        assert "email" in keys
-        assert "slack" in keys
-        assert "technical" in keys
-        assert "tweet" in keys
         assert "raw" in keys
 
-    def test_at_least_8_styles(self):
-        """We have at least 8 writing styles."""
-        assert len(WRITING_STYLES) >= 8
+    def test_has_3_styles(self):
+        """We have exactly 3 writing styles (simplified)."""
+        assert len(WRITING_STYLES) == 3
 
 
 class TestSystemPrompts:
@@ -68,31 +59,6 @@ class TestSystemPrompts:
         assert "formal" in prompt.lower()
         assert "professional" in prompt.lower()
 
-    def test_bullets_prompt(self, llm_config):
-        llm_config.writing_style = "bullets"
-        prompt = llm_config.get_system_prompt()
-        assert "bullet" in prompt.lower()
-
-    def test_email_prompt(self, llm_config):
-        llm_config.writing_style = "email"
-        prompt = llm_config.get_system_prompt()
-        assert "email" in prompt.lower()
-
-    def test_slack_prompt(self, llm_config):
-        llm_config.writing_style = "slack"
-        prompt = llm_config.get_system_prompt()
-        assert "chat" in prompt.lower() or "casual" in prompt.lower()
-
-    def test_technical_prompt(self, llm_config):
-        llm_config.writing_style = "technical"
-        prompt = llm_config.get_system_prompt()
-        assert "technical" in prompt.lower()
-
-    def test_tweet_prompt(self, llm_config):
-        llm_config.writing_style = "tweet"
-        prompt = llm_config.get_system_prompt()
-        assert "280" in prompt or "tweet" in prompt.lower()
-
     def test_unknown_style_falls_back_to_clean(self, llm_config):
         llm_config.writing_style = "nonexistent_style"
         prompt = llm_config.get_system_prompt()
@@ -101,7 +67,7 @@ class TestSystemPrompts:
 
     def test_all_prompts_contain_only(self, llm_config):
         """Every style prompt instructs to output ONLY the processed text."""
-        known_styles = ["clean", "formal", "bullets", "email", "slack", "technical", "tweet"]
+        known_styles = ["clean", "formal"]
         for style in known_styles:
             llm_config.writing_style = style
             prompt = llm_config.get_system_prompt()
@@ -109,20 +75,20 @@ class TestSystemPrompts:
 
     def test_translation_with_styles(self, llm_config):
         """Translation instruction is prepended regardless of style."""
-        llm_config.writing_style = "email"
+        llm_config.writing_style = "formal"
         llm_config.output_language = "ja"
         prompt = llm_config.get_system_prompt()
         assert "Japanese" in prompt
-        assert "email" in prompt.lower()
+        assert "formal" in prompt.lower()
 
     def test_dictionary_with_styles(self, llm_config):
         """Dictionary words are included regardless of style."""
-        llm_config.writing_style = "technical"
+        llm_config.writing_style = "formal"
         llm_config.dictionary = ["Kubernetes", "PostgreSQL"]
         prompt = llm_config.get_system_prompt()
         assert "Kubernetes" in prompt
         assert "PostgreSQL" in prompt
-        assert "technical" in prompt.lower()
+        assert "formal" in prompt.lower()
 
 
 class TestRawMode:
@@ -141,8 +107,10 @@ class TestRawMode:
         whisper_config = WhisperConfig(engine=STTEngine.WHISPER)
         llm_config = LLMConfig(writing_style="raw")
 
-        with patch("dictate.transcribe.WhisperTranscriber") as mock_whisper_cls, \
-             patch("dictate.transcribe.TextCleaner") as mock_cleaner_cls:
+        with (
+            patch("dictate.transcribe.WhisperTranscriber") as mock_whisper_cls,
+            patch("dictate.transcribe.TextCleaner") as mock_cleaner_cls,
+        ):
             mock_whisper = MagicMock()
             mock_whisper.transcribe.return_value = "hello world"
             mock_whisper_cls.return_value = mock_whisper
@@ -167,8 +135,10 @@ class TestRawMode:
         whisper_config = WhisperConfig(engine=STTEngine.WHISPER)
         llm_config = LLMConfig(writing_style="raw")
 
-        with patch("dictate.transcribe.WhisperTranscriber") as mock_whisper_cls, \
-             patch("dictate.transcribe.TextCleaner") as mock_cleaner_cls:
+        with (
+            patch("dictate.transcribe.WhisperTranscriber") as mock_whisper_cls,
+            patch("dictate.transcribe.TextCleaner") as mock_cleaner_cls,
+        ):
             mock_whisper = MagicMock()
             mock_whisper.transcribe.return_value = "hello world"
             mock_whisper_cls.return_value = mock_whisper

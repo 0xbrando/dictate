@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -63,6 +64,13 @@ class WhisperTranscriber:
             return
 
         print(f"   Whisper: {self._config.model}...", end=" ", flush=True)
+
+        from dictate.mlx_check import is_mlx_available
+        if not is_mlx_available():
+            raise RuntimeError(
+                "MLX cannot initialize Metal GPU on this system. "
+                "Whisper STT requires MLX. Use API mode or check macOS compatibility."
+            )
 
         try:
             import mlx_whisper
@@ -152,6 +160,13 @@ class ParakeetTranscriber:
     def load_model(self) -> None:
         if self._model is not None:
             return
+
+        from dictate.mlx_check import is_mlx_available
+        if not is_mlx_available():
+            raise RuntimeError(
+                "MLX cannot initialize Metal GPU on this system. "
+                "Parakeet STT requires MLX. Use API mode or check macOS compatibility."
+            )
 
         try:
             from parakeet_mlx import from_pretrained
@@ -283,6 +298,13 @@ class TextCleaner:
     def load_model(self) -> None:
         if self._model is not None:
             return
+
+        from dictate.mlx_check import is_mlx_available
+        if not is_mlx_available():
+            raise RuntimeError(
+                "MLX cannot initialize Metal GPU on this system. "
+                "Local LLM cleanup requires MLX. Use API mode or check macOS compatibility."
+            )
 
         from mlx_lm import load
 

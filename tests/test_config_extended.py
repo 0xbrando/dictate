@@ -24,7 +24,7 @@ class TestConfigFromEnvExtended:
     def test_audio_device_env(self, monkeypatch):
         """Test DICTATE_AUDIO_DEVICE sets audio device_id."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_AUDIO_DEVICE", "2")
         config = Config.from_env()
         assert config.audio.device_id == 2
@@ -32,7 +32,7 @@ class TestConfigFromEnvExtended:
     def test_whisper_model_env(self, monkeypatch):
         """Test DICTATE_WHISPER_MODEL sets custom whisper model."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_WHISPER_MODEL", "mlx-community/whisper-custom")
         config = Config.from_env()
         assert config.whisper.model == "mlx-community/whisper-custom"
@@ -40,7 +40,7 @@ class TestConfigFromEnvExtended:
     def test_input_language_specific_env(self, monkeypatch):
         """Test DICTATE_INPUT_LANGUAGE with specific language code."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_INPUT_LANGUAGE", "pl")
         config = Config.from_env()
         assert config.whisper.language == "pl"
@@ -48,7 +48,7 @@ class TestConfigFromEnvExtended:
     def test_output_language_specific_env(self, monkeypatch):
         """Test DICTATE_OUTPUT_LANGUAGE with specific language code."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_OUTPUT_LANGUAGE", "de")
         config = Config.from_env()
         assert config.llm.output_language == "de"
@@ -56,7 +56,7 @@ class TestConfigFromEnvExtended:
     def test_verbose_true_env(self, monkeypatch):
         """Test DICTATE_VERBOSE=true enables verbose mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_VERBOSE", "true")
         config = Config.from_env()
         assert config.verbose is True
@@ -64,7 +64,7 @@ class TestConfigFromEnvExtended:
     def test_verbose_yes_env(self, monkeypatch):
         """Test DICTATE_VERBOSE=yes enables verbose mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_VERBOSE", "yes")
         config = Config.from_env()
         assert config.verbose is True
@@ -72,7 +72,7 @@ class TestConfigFromEnvExtended:
     def test_verbose_one_env(self, monkeypatch):
         """Test DICTATE_VERBOSE=1 enables verbose mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_VERBOSE", "1")
         config = Config.from_env()
         assert config.verbose is True
@@ -80,7 +80,7 @@ class TestConfigFromEnvExtended:
     def test_verbose_false_env(self, monkeypatch):
         """Test DICTATE_VERBOSE=false disables verbose mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_VERBOSE", "false")
         config = Config.from_env()
         assert config.verbose is False
@@ -88,7 +88,7 @@ class TestConfigFromEnvExtended:
     def test_verbose_zero_env(self, monkeypatch):
         """Test DICTATE_VERBOSE=0 disables verbose mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_VERBOSE", "0")
         config = Config.from_env()
         assert config.verbose is False
@@ -96,7 +96,7 @@ class TestConfigFromEnvExtended:
     def test_llm_cleanup_true_env(self, monkeypatch):
         """Test DICTATE_LLM_CLEANUP=true enables LLM cleanup."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_CLEANUP", "true")
         config = Config.from_env()
         assert config.llm.enabled is True
@@ -104,7 +104,7 @@ class TestConfigFromEnvExtended:
     def test_llm_cleanup_false_env(self, monkeypatch):
         """Test DICTATE_LLM_CLEANUP=false disables LLM cleanup."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_CLEANUP", "false")
         config = Config.from_env()
         assert config.llm.enabled is False
@@ -112,7 +112,7 @@ class TestConfigFromEnvExtended:
     def test_llm_model_qwen_1_5b_env(self, monkeypatch):
         """Test DICTATE_LLM_MODEL=qwen-1.5b sets correct model."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-1.5b")
         config = Config.from_env()
         assert config.llm.model_choice == LLMModel.QWEN_1_5B
@@ -120,7 +120,7 @@ class TestConfigFromEnvExtended:
     def test_llm_model_phi3_env(self, monkeypatch):
         """Test DICTATE_LLM_MODEL=phi3 sets correct model."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_MODEL", "phi3")
         config = Config.from_env()
         assert config.llm.model_choice == LLMModel.PHI3
@@ -128,7 +128,7 @@ class TestConfigFromEnvExtended:
     def test_llm_model_qwen_env(self, monkeypatch):
         """Test DICTATE_LLM_MODEL=qwen sets correct model."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen")
         config = Config.from_env()
         assert config.llm.model_choice == LLMModel.QWEN
@@ -136,7 +136,7 @@ class TestConfigFromEnvExtended:
     def test_llm_model_qwen_7b_env(self, monkeypatch):
         """Test DICTATE_LLM_MODEL=qwen-7b sets correct model."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-7b")
         config = Config.from_env()
         assert config.llm.model_choice == LLMModel.QWEN_7B
@@ -144,7 +144,7 @@ class TestConfigFromEnvExtended:
     def test_llm_model_qwen_14b_env(self, monkeypatch):
         """Test DICTATE_LLM_MODEL=qwen-14b sets correct model."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-14b")
         config = Config.from_env()
         assert config.llm.model_choice == LLMModel.QWEN_14B
@@ -152,7 +152,7 @@ class TestConfigFromEnvExtended:
     def test_llm_model_invalid_env(self, monkeypatch):
         """Test invalid DICTATE_LLM_MODEL keeps default."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_MODEL", "invalid-model")
         config = Config.from_env()
         assert config.llm.model_choice == LLMModel.QWEN  # default
@@ -160,7 +160,7 @@ class TestConfigFromEnvExtended:
     def test_llm_backend_local_env(self, monkeypatch):
         """Test DICTATE_LLM_BACKEND=local sets local backend."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_BACKEND", "local")
         config = Config.from_env()
         assert config.llm.backend == LLMBackend.LOCAL
@@ -168,7 +168,7 @@ class TestConfigFromEnvExtended:
     def test_llm_backend_api_env(self, monkeypatch):
         """Test DICTATE_LLM_BACKEND=api sets API backend."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_BACKEND", "api")
         config = Config.from_env()
         assert config.llm.backend == LLMBackend.API
@@ -176,7 +176,7 @@ class TestConfigFromEnvExtended:
     def test_llm_backend_invalid_env(self, monkeypatch):
         """Test invalid DICTATE_LLM_BACKEND keeps default."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_LLM_BACKEND", "invalid")
         config = Config.from_env()
         assert config.llm.backend == LLMBackend.LOCAL  # default
@@ -184,7 +184,7 @@ class TestConfigFromEnvExtended:
     def test_llm_api_url_env(self, monkeypatch):
         """Test DICTATE_LLM_API_URL sets custom API URL."""
         from dictate.config import Config
-        
+
         custom_url = "http://custom-endpoint:8080/v1/chat/completions"
         monkeypatch.setenv("DICTATE_LLM_API_URL", custom_url)
         config = Config.from_env()
@@ -193,7 +193,7 @@ class TestConfigFromEnvExtended:
     def test_output_mode_type_env(self, monkeypatch):
         """Test DICTATE_OUTPUT_MODE=type sets type mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_OUTPUT_MODE", "type")
         config = Config.from_env()
         assert config.output_mode == OutputMode.TYPE
@@ -201,7 +201,7 @@ class TestConfigFromEnvExtended:
     def test_output_mode_clipboard_env(self, monkeypatch):
         """Test DICTATE_OUTPUT_MODE=clipboard sets clipboard mode."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_OUTPUT_MODE", "clipboard")
         config = Config.from_env()
         assert config.output_mode == OutputMode.CLIPBOARD
@@ -209,7 +209,7 @@ class TestConfigFromEnvExtended:
     def test_all_env_vars_together(self, monkeypatch):
         """Test all environment variables work together."""
         from dictate.config import Config
-        
+
         monkeypatch.setenv("DICTATE_AUDIO_DEVICE", "3")
         monkeypatch.setenv("DICTATE_OUTPUT_MODE", "clipboard")
         monkeypatch.setenv("DICTATE_WHISPER_MODEL", "mlx-community/custom-model")
@@ -220,9 +220,9 @@ class TestConfigFromEnvExtended:
         monkeypatch.setenv("DICTATE_LLM_MODEL", "phi3")
         monkeypatch.setenv("DICTATE_LLM_BACKEND", "api")
         monkeypatch.setenv("DICTATE_LLM_API_URL", "http://api:8000/v1")
-        
+
         config = Config.from_env()
-        
+
         assert config.audio.device_id == 3
         assert config.output_mode == OutputMode.CLIPBOARD
         assert config.whisper.model == "mlx-community/custom-model"
@@ -336,13 +336,6 @@ class TestLLMConfigExtended:
         assert "professional" in prompt.lower() or "formal" in prompt.lower()
         assert "NEVER answer questions" in prompt
 
-    def test_get_system_prompt_bullets_style(self):
-        """Test bullets writing style prompt."""
-        config = LLMConfig(writing_style="bullets")
-        prompt = config.get_system_prompt()
-        assert "bullet" in prompt.lower()
-        assert "NEVER answer questions" in prompt
-
     def test_get_system_prompt_unknown_style_defaults_to_clean(self):
         """Test unknown writing style defaults to clean."""
         config = LLMConfig(writing_style="unknown_style")
@@ -408,7 +401,14 @@ class TestIsModelCached:
     def test_model_cached_returns_true(self, tmp_path, monkeypatch):
         """Test is_model_cached returns True when model snapshot dir exists with contents."""
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-        snap_dir = tmp_path / ".cache" / "huggingface" / "hub" / "models--mlx-community--Qwen2.5-3B-Instruct-4bit" / "snapshots"
+        snap_dir = (
+            tmp_path
+            / ".cache"
+            / "huggingface"
+            / "hub"
+            / "models--mlx-community--Qwen2.5-3B-Instruct-4bit"
+            / "snapshots"
+        )
         snap_dir.mkdir(parents=True)
         (snap_dir / "abc123").mkdir()  # a snapshot
         assert is_model_cached("mlx-community/Qwen2.5-3B-Instruct-4bit") is True
@@ -421,7 +421,14 @@ class TestIsModelCached:
     def test_model_not_cached_empty_dir(self, tmp_path, monkeypatch):
         """Test is_model_cached returns False when snapshot dir is empty."""
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-        snap_dir = tmp_path / ".cache" / "huggingface" / "hub" / "models--mlx-community--Qwen2.5-3B-Instruct-4bit" / "snapshots"
+        snap_dir = (
+            tmp_path
+            / ".cache"
+            / "huggingface"
+            / "hub"
+            / "models--mlx-community--Qwen2.5-3B-Instruct-4bit"
+            / "snapshots"
+        )
         snap_dir.mkdir(parents=True)
         assert is_model_cached("mlx-community/Qwen2.5-3B-Instruct-4bit") is False
 

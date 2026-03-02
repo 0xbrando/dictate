@@ -37,7 +37,7 @@ class TestRunDoctor:
 
     def _run_with_patches(self, patches):
         doctor = self._import_doctor()
-        
+
         sd_mock = MagicMock()
         if patches.get("sounddevice_ok"):
             # First call: list of all devices; second call: default input device
@@ -173,14 +173,7 @@ class TestShowStatus:
              patch("dictate.config.is_model_cached", return_value=False), \
              patch("dictate.config.get_cached_model_disk_size", return_value="0 B"), \
              patch.dict(sys.modules, {"parakeet_mlx": None}):
-            import builtins
-            real_import = builtins.__import__
-            def fake_import(name, *args, **kwargs):
-                if name == "parakeet_mlx":
-                    raise ImportError("no parakeet")
-                return real_import(name, *args, **kwargs)
-            with patch("builtins.__import__", side_effect=fake_import):
-                result = status()
+            result = status()
 
         captured = capsys.readouterr()
         assert "Dictate Status" in captured.out
@@ -193,14 +186,7 @@ class TestShowStatus:
              patch("dictate.config.is_model_cached", return_value=True), \
              patch("dictate.config.get_cached_model_disk_size", return_value="1.2 GB"), \
              patch.dict(sys.modules, {"parakeet_mlx": None}):
-            import builtins
-            real_import = builtins.__import__
-            def fake_import(name, *args, **kwargs):
-                if name == "parakeet_mlx":
-                    raise ImportError("no parakeet")
-                return real_import(name, *args, **kwargs)
-            with patch("builtins.__import__", side_effect=fake_import):
-                result = status()
+            result = status()
 
         captured = capsys.readouterr()
         assert "Running" in captured.out
@@ -211,14 +197,7 @@ class TestShowStatus:
         with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout=f"{os.getpid()}\n")), \
              patch("dictate.config.is_model_cached", return_value=False), \
              patch.dict(sys.modules, {"parakeet_mlx": None}):
-            import builtins
-            real_import = builtins.__import__
-            def fake_import(name, *args, **kwargs):
-                if name == "parakeet_mlx":
-                    raise ImportError("no parakeet")
-                return real_import(name, *args, **kwargs)
-            with patch("builtins.__import__", side_effect=fake_import):
-                result = status()
+            result = status()
 
         captured = capsys.readouterr()
         assert "Not running" in captured.out
@@ -233,14 +212,7 @@ class TestShowStatus:
              patch("dictate.config.is_model_cached", return_value=False), \
              patch("dictate.menubar_main.LOG_FILE", log_file), \
              patch.dict(sys.modules, {"parakeet_mlx": None}):
-            import builtins
-            real_import = builtins.__import__
-            def fake_import(name, *args, **kwargs):
-                if name == "parakeet_mlx":
-                    raise ImportError("no parakeet")
-                return real_import(name, *args, **kwargs)
-            with patch("builtins.__import__", side_effect=fake_import):
-                result = status()
+            result = status()
 
         captured = capsys.readouterr()
         assert "Logs" in captured.out

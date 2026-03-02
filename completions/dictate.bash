@@ -9,7 +9,7 @@ _dictate_completions() {
     local commands="config stats status doctor devices update"
     local config_subcmds="show set reset path"
     local config_keys="writing_style quality stt input_language output_language ptt_key command_key llm_cleanup sound llm_endpoint advanced_mode"
-    local writing_styles="clean formal bullets email slack technical tweet raw"
+    local writing_styles="clean formal raw"
     local quality_values="0 1 2 3 4 api speedy fast balanced quality"
     local stt_values="0 1 parakeet whisper"
     local languages="auto en pl de fr es it pt nl ja zh ko ru"

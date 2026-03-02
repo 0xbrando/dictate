@@ -28,6 +28,7 @@ def _isolate_prefs(tmp_path, monkeypatch):
 def _run_config(*args):
     """Import and run the config command with given args."""
     from dictate.menubar_main import _config_command
+
     return _config_command(list(args))
 
 
@@ -62,7 +63,7 @@ class TestConfigShow:
 
     def test_show_after_reset(self, capsys):
         """Show after reset returns defaults."""
-        _run_config("set", "writing_style", "bullets")
+        _run_config("set", "writing_style", "raw")
         _run_config("reset")
         rc = _run_config("show")
         assert rc == 0
@@ -81,17 +82,18 @@ class TestConfigSet:
         assert "writing_style" in out
         assert "formal" in out
 
-    def test_set_writing_style_bullets(self, capsys):
-        rc = _run_config("set", "writing_style", "bullets")
+    def test_set_writing_style_raw(self, capsys):
+        rc = _run_config("set", "writing_style", "raw")
         assert rc == 0
         out = capsys.readouterr().out
-        assert "bullets" in out
+        assert "raw" in out
 
     def test_set_quality_by_index(self, capsys):
         rc = _run_config("set", "quality", "2")
         assert rc == 0
         # Verify it persisted
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.quality_preset == 2
 
@@ -99,6 +101,7 @@ class TestConfigSet:
         rc = _run_config("set", "quality", "speedy")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.quality_preset == 1
 
@@ -106,6 +109,7 @@ class TestConfigSet:
         rc = _run_config("set", "quality", "api")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.quality_preset == 0
 
@@ -113,6 +117,7 @@ class TestConfigSet:
         rc = _run_config("set", "quality", "balanced")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.quality_preset == 3
 
@@ -120,6 +125,7 @@ class TestConfigSet:
         rc = _run_config("set", "stt", "whisper")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.stt_preset == 1
 
@@ -127,6 +133,7 @@ class TestConfigSet:
         rc = _run_config("set", "stt", "0")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.stt_preset == 0
 
@@ -134,6 +141,7 @@ class TestConfigSet:
         rc = _run_config("set", "input_language", "ja")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.input_language == "ja"
 
@@ -141,6 +149,7 @@ class TestConfigSet:
         rc = _run_config("set", "output_language", "es")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.output_language == "es"
 
@@ -148,6 +157,7 @@ class TestConfigSet:
         rc = _run_config("set", "ptt_key", "cmd_r")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.ptt_key == "cmd_r"
 
@@ -155,6 +165,7 @@ class TestConfigSet:
         rc = _run_config("set", "command_key", "alt_r")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.command_key == "alt_r"
 
@@ -162,6 +173,7 @@ class TestConfigSet:
         rc = _run_config("set", "llm_cleanup", "off")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.llm_cleanup is False
 
@@ -170,6 +182,7 @@ class TestConfigSet:
         rc = _run_config("set", "llm_cleanup", "on")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.llm_cleanup is True
 
@@ -177,6 +190,7 @@ class TestConfigSet:
         rc = _run_config("set", "llm_cleanup", "true")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.llm_cleanup is True
 
@@ -184,6 +198,7 @@ class TestConfigSet:
         rc = _run_config("set", "llm_cleanup", "false")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.llm_cleanup is False
 
@@ -191,6 +206,7 @@ class TestConfigSet:
         rc = _run_config("set", "llm_cleanup", "0")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.llm_cleanup is False
 
@@ -198,6 +214,7 @@ class TestConfigSet:
         rc = _run_config("set", "sound", "chime")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.sound_preset == 1
 
@@ -205,6 +222,7 @@ class TestConfigSet:
         rc = _run_config("set", "sound", "3")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.sound_preset == 3
 
@@ -212,6 +230,7 @@ class TestConfigSet:
         rc = _run_config("set", "llm_endpoint", "localhost:8080")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.llm_endpoint == "localhost:8080"
 
@@ -219,6 +238,7 @@ class TestConfigSet:
         rc = _run_config("set", "advanced_mode", "on")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.advanced_mode is True
 
@@ -227,6 +247,7 @@ class TestConfigSet:
         rc = _run_config("set", "advanced_mode", "off")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.advanced_mode is False
 
@@ -313,6 +334,7 @@ class TestConfigReset:
         rc = _run_config("reset")
         assert rc == 0
         from dictate.presets import Preferences
+
         prefs = Preferences.load()
         assert prefs.writing_style == "clean"
         assert prefs.llm_cleanup is True
@@ -343,10 +365,10 @@ class TestConfigPath:
 class TestConfigPersistence:
     def test_set_persists_to_file(self, _isolate_prefs):
         prefs_dir, prefs_file = _isolate_prefs
-        _run_config("set", "writing_style", "bullets")
+        _run_config("set", "writing_style", "raw")
         assert prefs_file.exists()
         data = json.loads(prefs_file.read_text())
-        assert data["writing_style"] == "bullets"
+        assert data["writing_style"] == "raw"
 
     def test_multiple_sets_accumulate(self, _isolate_prefs):
         prefs_dir, prefs_file = _isolate_prefs
@@ -374,6 +396,7 @@ class TestConfigMainIntegration:
     def test_help_mentions_config(self, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["dictate", "--help"])
         from dictate.menubar_main import main
+
         rc = main()
         assert rc == 0
         out = capsys.readouterr().out
@@ -383,6 +406,7 @@ class TestConfigMainIntegration:
     def test_main_routes_config_show(self, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["dictate", "config"])
         from dictate.menubar_main import main
+
         rc = main()
         assert rc == 0
         out = capsys.readouterr().out
@@ -391,18 +415,21 @@ class TestConfigMainIntegration:
     def test_main_routes_config_set(self, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["dictate", "config", "set", "writing_style", "formal"])
         from dictate.menubar_main import main
+
         rc = main()
         assert rc == 0
 
     def test_main_routes_config_reset(self, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["dictate", "config", "reset"])
         from dictate.menubar_main import main
+
         rc = main()
         assert rc == 0
 
     def test_main_routes_config_path(self, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["dictate", "config", "path"])
         from dictate.menubar_main import main
+
         rc = main()
         assert rc == 0
 
@@ -426,6 +453,7 @@ class TestConfigEdgeCases:
     def test_set_all_languages(self, capsys):
         """Test every valid input language can be set."""
         from dictate.presets import INPUT_LANGUAGES
+
         for code, name in INPUT_LANGUAGES:
             rc = _run_config("set", "input_language", code)
             assert rc == 0, f"Failed to set input_language={code}"
@@ -433,6 +461,7 @@ class TestConfigEdgeCases:
     def test_set_all_output_languages(self, capsys):
         """Test every valid output language can be set."""
         from dictate.presets import OUTPUT_LANGUAGES
+
         for code, name in OUTPUT_LANGUAGES:
             rc = _run_config("set", "output_language", code)
             assert rc == 0, f"Failed to set output_language={code}"
@@ -440,6 +469,7 @@ class TestConfigEdgeCases:
     def test_set_all_ptt_keys(self, capsys):
         """Test every valid PTT key can be set."""
         from dictate.presets import PTT_KEYS
+
         for code, name in PTT_KEYS:
             rc = _run_config("set", "ptt_key", code)
             assert rc == 0, f"Failed to set ptt_key={code}"
@@ -447,6 +477,7 @@ class TestConfigEdgeCases:
     def test_set_all_command_keys(self, capsys):
         """Test every valid command key can be set."""
         from dictate.presets import COMMAND_KEYS
+
         for code, name in COMMAND_KEYS:
             rc = _run_config("set", "command_key", code)
             assert rc == 0, f"Failed to set command_key={code}"

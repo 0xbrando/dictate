@@ -17,6 +17,12 @@ def _run_doctor_with_mocks(printed, mac_ver="15.0", processor="arm",
     mock_sub_result.stdout = ""
     mock_sub_result.returncode = 1
 
+    modules = {
+        "parakeet_mlx": MagicMock(),
+        "sounddevice": MagicMock(),
+        "Quartz": MagicMock(),
+    }
+
     with patch("platform.mac_ver", return_value=(mac_ver, ("", "", ""), "")):
         with patch("platform.processor", return_value=processor):
             with patch("dictate.config.is_model_cached", return_value=model_cached):
@@ -25,11 +31,12 @@ def _run_doctor_with_mocks(printed, mac_ver="15.0", processor="arm",
                                side_effect=subprocess_effect if subprocess_effect else
                                MagicMock(return_value=mock_sub_result)):
                         with patch("shutil.disk_usage", return_value=(1e12, 1e12 - disk_free, disk_free)):
-                            if extra_patches:
-                                with extra_patches:
+                            with patch.dict(sys.modules, modules):
+                                if extra_patches:
+                                    with extra_patches:
+                                        return _run_doctor()
+                                else:
                                     return _run_doctor()
-                            else:
-                                return _run_doctor()
 
 
 class TestDoctorMacVersion:
@@ -167,22 +174,26 @@ class TestShowStatusPaths:
         from dictate.menubar_main import _show_status
         printed = []
 
+        modules = {"parakeet_mlx": MagicMock(), "sounddevice": MagicMock()}
         with patch("builtins.print", side_effect=lambda *a, **kw: printed.append(str(a))):
             with patch("dictate.config.is_model_cached", return_value=True):
                 with patch("dictate.config.get_cached_model_disk_size", return_value=100e6):
                     with patch("subprocess.run", side_effect=FileNotFoundError):
-                        _show_status()
+                        with patch.dict(sys.modules, modules):
+                            _show_status()
 
     def test_status_daemon_error(self):
         """Status check exception handled."""
         from dictate.menubar_main import _show_status
         printed = []
 
+        modules = {"parakeet_mlx": MagicMock(), "sounddevice": MagicMock()}
         with patch("builtins.print", side_effect=lambda *a, **kw: printed.append(str(a))):
             with patch("dictate.config.is_model_cached", return_value=True):
                 with patch("dictate.config.get_cached_model_disk_size", return_value=100e6):
                     with patch("subprocess.run", side_effect=Exception("test")):
-                        _show_status()
+                        with patch.dict(sys.modules, modules):
+                            _show_status()
 
         text = " ".join(printed)
         # Should show unknown or error status, not crash

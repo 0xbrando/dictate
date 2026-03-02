@@ -213,7 +213,7 @@ dictate -V           # Show version
 
 | Key | Values |
 |-----|--------|
-| `writing_style` | clean, formal, bullets, email, slack, technical, tweet, raw |
+| `writing_style` | clean, formal, raw |
 | `quality` | api, speedy, fast, balanced, quality |
 | `stt` | parakeet, whisper |
 | `input_language` | auto, en, ja, de, fr, es, ... |
