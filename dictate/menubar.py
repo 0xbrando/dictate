@@ -107,7 +107,8 @@ class DictateMenuBarApp(rumps.App):
         self._recording_locked = False
         self._ptt_held = False
         self._is_recording = False
-        self._last_ptt_event: float = 0.0
+        self._last_ptt_press: float = 0.0
+        self._last_ptt_release: float = 0.0
         self._paused = False
         self._rms_history: deque[float] = deque([0.0] * 5, maxlen=5)
 
@@ -972,9 +973,9 @@ class DictateMenuBarApp(rumps.App):
                 return
             if key == self._config.keybinds.ptt_key:
                 now = time.monotonic()
-                if now - self._last_ptt_event < PTT_DEBOUNCE_S:
+                if now - self._last_ptt_press < PTT_DEBOUNCE_S:
                     return  # macOS modifier double-fire — ignore
-                self._last_ptt_event = now
+                self._last_ptt_press = now
                 self._ptt_held = True
                 if self._recording_locked:
                     self._recording_locked = False
@@ -995,9 +996,9 @@ class DictateMenuBarApp(rumps.App):
         def on_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
             if key == self._config.keybinds.ptt_key:
                 now = time.monotonic()
-                if now - self._last_ptt_event < PTT_DEBOUNCE_S:
+                if now - self._last_ptt_release < PTT_DEBOUNCE_S:
                     return  # macOS modifier double-fire — ignore
-                self._last_ptt_event = now
+                self._last_ptt_release = now
                 self._ptt_held = False
                 if not self._recording_locked:
                     self._stop_recording()
@@ -1035,6 +1036,15 @@ class DictateMenuBarApp(rumps.App):
     def _stop_recording(self) -> None:
         if self._audio is None or not self._audio.is_recording:
             return
+        duration = self._audio.stop()
+        self._is_recording = False
+        self._post_ui("icon", "idle")
+
+        if duration < self._config.min_hold_to_process_s:
+            self._post_ui("status", "Ready")
+            return
+
+        # Only play stop tone for real dictations (not accidental taps)
         try:
             play_tone(
                 self._config.tones,
@@ -1043,13 +1053,6 @@ class DictateMenuBarApp(rumps.App):
             )
         except Exception:
             logger.warning("Stop tone failed, continuing")
-        duration = self._audio.stop()
-        self._is_recording = False
-        self._post_ui("icon", "idle")
-
-        if duration < self._config.min_hold_to_process_s:
-            self._post_ui("status", "Ready")
-            return
 
         self._post_ui("status", "Processing...")
 
