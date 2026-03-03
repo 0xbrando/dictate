@@ -128,6 +128,18 @@ Speak in one language, get output in another. 12 languages supported: English, S
 
 Short phrases (15 words or less) skip LLM cleanup entirely for instant output. The app picks the best default model for your chip.
 
+### End-to-End Pipeline
+
+Full latency from voice → text on screen:
+
+| Mode | GPU RAM | Latency |
+|------|---------|---------|
+| LLM off (raw transcription) | **0** | **~65ms** |
+| LLM on (Qwen2.5 1.5B) | ~950MB | ~315ms |
+| LLM on (Qwen2.5 3B) | ~1.8GB | ~465ms |
+
+With ANE, speech recognition runs on a dedicated chip with its own memory — zero GPU usage. Turn off LLM cleanup and the entire app uses no GPU RAM at all.
+
 ## Menu Bar
 
 <p align="center">
