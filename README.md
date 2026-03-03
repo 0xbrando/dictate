@@ -9,7 +9,7 @@
   <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-1071%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-851%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-98%25-brightgreen" alt="Coverage">
 </p>
 
@@ -29,9 +29,10 @@
 | **Price** | **Free** | $8.49/mo | $12/mo | $39.99 | Free |
 | **Open source** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **100% local** | ✅ | ✅ | ❌ (cloud) | ✅ | Partial |
+| **Neural Engine STT** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **LLM cleanup** | ✅ | ❌ | ✅ | ❌ | ❌ |
 | **Translation** | ✅ 12 langs | ❌ | ❌ | ❌ | ❌ |
-| **Writing styles** | ✅ 8 modes | ❌ | ✅ | ❌ | ❌ |
+| **Writing styles** | ✅ 3 modes | ❌ | ✅ | ❌ | ❌ |
 | **Push-to-talk** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Personal dictionary** | ✅ | ❌ | ✅ | ❌ | ✅ |
 
@@ -48,7 +49,7 @@ That's it. Dictate launches in the background and appears in your menu bar. Clos
 
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 
-macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically (~2-4GB, cached in `~/.cache/huggingface/`).
+macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically (~1-3GB depending on preset, cached in `~/.cache/huggingface/`).
 
 <details>
 <summary><b>Install from source</b></summary>
@@ -67,7 +68,7 @@ dictate
 
 - macOS with Apple Silicon (any M-series chip)
 - Python 3.11+
-- ~4GB RAM minimum, ~6GB recommended
+- ~3GB RAM with ANE (STT runs on Neural Engine, only LLM needs GPU memory)
 
 ## Features
 
@@ -89,31 +90,29 @@ The PTT key is configurable: Left Control, Right Control, Right Command, or eith
 
 Short phrases (≤15 words) skip cleanup for instant speed. Longer dictation gets the full treatment.
 
-### 🗣️ Two STT Engines
+### 🗣️ Three STT Engines
 
-Both included. Switch anytime from the menu bar.
+All included. Switch anytime from the menu bar.
 
 | Engine | Speed | Languages | Notes |
 |--------|-------|-----------|-------|
-| **Parakeet TDT 0.6B** | ~50ms | English | Default — 4-8x faster than Whisper |
-| **Whisper Large V3 Turbo** | ~300ms | 99+ | For multilingual or non-English input |
+| **ANE (Neural Engine)** | **~65ms** | 25 | Default — runs on Apple Neural Engine, frees GPU for LLM |
+| **Parakeet TDT 0.6B** | ~50ms | 25 | Runs on GPU via MLX |
+| **Whisper Large V3 Turbo** | ~300ms | 99+ | Auto-selected for Japanese, Chinese, Korean |
+
+ANE is the default. It runs speech recognition on Apple's Neural Engine — a dedicated chip that sits idle during most tasks. This frees the GPU entirely for LLM text cleanup, so STT and LLM run concurrently with zero contention. The result: **65-106ms transcription** on real speech.
+
+When you select a language not supported by ANE/Parakeet (Japanese, Chinese, Korean), Dictate automatically switches to Whisper. Switch back to a supported language and it returns to ANE.
 
 ### ✍️ Writing Styles
-
-<img src="assets/writing-style.png" alt="Writing styles menu" width="400">
 
 | Style | What it does |
 |-------|-------------|
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
-| **Formal** | Rewrites in a professional tone |
-| **Bullet Points** | Distills dictation into concise key points |
-| **Email** | Formats as a professional email with greeting and sign-off |
-| **Slack / Chat** | Casual, concise, chat-friendly messages |
-| **Technical** | Precise technical documentation style |
-| **Tweet** | Condenses to under 280 characters |
-| **Raw** | No LLM processing — exact transcription output |
+| **Professional** | Polished tone and grammar |
+| **Bullet Points** | Rewrites as concise bullet points |
 
-8 writing styles — more than any macOS dictation tool.
+Toggle LLM cleanup off from the menu bar for raw transcription output.
 
 ### 🌐 Real-Time Translation
 
@@ -121,19 +120,13 @@ Speak in one language, get output in another. 12 languages supported: English, S
 
 ### ⚡ Quality Presets
 
-<img src="assets/quality.png" alt="Quality presets menu" width="400">
+| Preset | Speed | Size | Best for |
+|--------|-------|------|----------|
+| **Qwen2.5 1.5B** | ~250ms | 950MB | Fast and reliable (default) |
+| **Qwen2.5 3B** | ~400ms | 1.8GB | Best accuracy |
+| **API Server** | varies | 0 | Use your own LLM server (LM Studio, Ollama, etc.) |
 
-| Preset | Speed | RAM | Best for |
-|--------|-------|-----|----------|
-| API Server | varies | 0 | Use your own LLM server (LM Studio, Ollama, etc.) |
-| Speedy (1.5B) | ~120ms | 1.0GB | Quick fixes, any M-chip |
-| Fast (3B) | ~250ms | 1.8GB | Everyday use |
-| Balanced (7B) | ~350ms | 4.2GB | Longer dictation, formal rewrites |
-| Quality (14B) | ~500ms | 8.8GB | Best accuracy |
-
-Smart routing auto-routes by message length: short phrases → fast local model, longer dictation → larger model or API server.
-
-Times on M3 Ultra. The app picks the best default for your chip.
+Short phrases (15 words or less) skip LLM cleanup entirely for instant output. The app picks the best default model for your chip.
 
 ## Menu Bar
 
@@ -144,16 +137,54 @@ Times on M3 Ultra. The app picks the best default for your chip.
 
 Everything accessible from the waveform icon:
 
-- **Writing Style** — Clean Up, Formal, Bullet Points, Email, Slack, Technical, Tweet, Raw
-- **Quality** — model size (shows only downloaded models)
+- **Writing Style** — Clean Up, Professional, Bullet Points
+- **Quality** — Qwen2.5 1.5B or 3B (or API server)
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
-- **STT Engine** — Whisper or Parakeet
+- **STT Engine** — ANE (default), Parakeet, or Whisper
 - **PTT Key** — choose your push-to-talk modifier
 - **Languages** — input and output language
 - **Sounds** — 6 notification tones or silent
 - **Personal Dictionary** — names, brands, technical terms always spelled correctly
 - **Launch at Login** — auto-start on boot
+
+## ANE Engine Setup
+
+The ANE (Apple Neural Engine) engine is the default and recommended STT engine. It requires a small Swift binary that Dictate calls behind the scenes. If the binary isn't installed, Dictate falls back to Parakeet (GPU-based STT).
+
+```bash
+# Build from source (requires Xcode command line tools)
+cd swift-stt
+swift build -c release
+
+# The binary lands at swift-stt/.build/release/dictate-stt
+# Either add it to your PATH or leave it — Dictate finds it automatically
+```
+
+**First run:** CoreML models download automatically (~2.7GB) and compile for your chip. This takes 1-2 minutes the first time. After that, models are cached and transcription starts instantly.
+
+**Requirements:** macOS 14+ (Sonoma or later), Apple Silicon.
+
+**What it does:** The `dictate-stt` binary uses [FluidAudio](https://github.com/FluidInference/FluidAudio) to run Parakeet speech recognition on the Neural Engine via CoreML. All processing is local — no network calls after the initial model download.
+
+<details>
+<summary><b>How it works</b></summary>
+
+When you select ANE in the menu bar, Dictate calls the `dictate-stt` binary as a subprocess:
+
+1. Dictate records audio and saves it as a temporary WAV file
+2. Calls `dictate-stt transcribe /tmp/audio.wav`
+3. The Swift binary runs the audio through CoreML on the Neural Engine
+4. Returns JSON to stdout: `{"text": "Hello world", "duration_ms": 68}`
+5. Dictate parses the result and pipes it through LLM cleanup as usual
+
+The binary is a standalone executable with no Python dependency. You can also use it directly:
+
+```bash
+dictate-stt check                    # Verify ANE is available
+dictate-stt transcribe recording.wav # Transcribe a WAV file
+```
+</details>
 
 ## API Server
 
@@ -176,10 +207,11 @@ The **Smart** preset auto-routes by length: short phrases → fast local model (
 |----------|-------------|---------|
 | `DICTATE_AUDIO_DEVICE` | Microphone device index | System default |
 | `DICTATE_OUTPUT_MODE` | `type` or `clipboard` | `type` |
+| `DICTATE_STT_ENGINE` | `ane`, `parakeet`, or `whisper` | `ane` |
 | `DICTATE_INPUT_LANGUAGE` | `auto`, `en`, `ja`, `ko`, etc. | `auto` |
 | `DICTATE_OUTPUT_LANGUAGE` | Translation target (`auto` = same) | `auto` |
 | `DICTATE_LLM_CLEANUP` | Enable LLM text cleanup | `true` |
-| `DICTATE_LLM_MODEL` | `qwen-1.5b`, `qwen`, `qwen-7b`, `qwen-14b` | `qwen` |
+| `DICTATE_LLM_MODEL` | `qwen25-1.5b`, `qwen-3b` | `qwen25-1.5b` |
 | `DICTATE_LLM_BACKEND` | `local` or `api` | `local` |
 | `DICTATE_LLM_API_URL` | OpenAI-compatible endpoint | `http://localhost:8005/v1/chat/completions` |
 | `DICTATE_ALLOW_REMOTE_API` | Allow non-localhost API URLs | unset |
@@ -195,8 +227,8 @@ Dictate works well as a voice input layer for AI assistants and agent frameworks
 ```bash
 dictate              # Launch in menu bar (backgrounds automatically)
 dictate config       # View all preferences
-dictate config set writing_style formal
-dictate config set quality speedy
+dictate config set writing_style professional
+dictate config set quality fast
 dictate config set ptt_key cmd_r
 dictate config set stt whisper
 dictate config reset # Reset to defaults
@@ -213,9 +245,9 @@ dictate -V           # Show version
 
 | Key | Values |
 |-----|--------|
-| `writing_style` | clean, formal, raw |
-| `quality` | api, speedy, fast, balanced, quality |
-| `stt` | parakeet, whisper |
+| `writing_style` | clean, professional, bullets |
+| `quality` | api, fast, quality |
+| `stt` | ane, parakeet, whisper |
 | `input_language` | auto, en, ja, de, fr, es, ... |
 | `output_language` | auto, en, ja, de, fr, es, ... |
 | `ptt_key` | ctrl_l, ctrl_r, cmd_r, alt_l, alt_r |
@@ -251,10 +283,10 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 ## Security
 
 - All processing is local. Audio and text never leave your machine.
+- The ANE engine's `dictate-stt` binary is open source Swift code you build yourself from `swift-stt/`. CoreML models download from [Hugging Face](https://huggingface.co/FluidInference) on first run, then everything is cached locally.
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
 - Preferences stored with `0o600` permissions (owner-only).
 - No API keys, tokens, or accounts required.
-- 994 tests, 97% code coverage.
 
 ## Contributing
 

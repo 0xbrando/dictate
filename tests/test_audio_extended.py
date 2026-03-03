@@ -385,14 +385,13 @@ class TestPlayToneExtended:
     """Extended tests for play_tone function."""
 
     @patch("dictate.audio.sd")
-    @patch("dictate.audio.TONE_SAMPLE_RATE", 44100)
     def test_play_tone_with_disabled_config(self, mock_sd):
         """Test play_tone returns early when config.enabled is False."""
         from dictate.config import ToneConfig
-        
+
         config = ToneConfig(enabled=False)
         play_tone(config, 880)
-        
+
         # Should not call sd.play when disabled
         mock_sd.play.assert_not_called()
 
@@ -400,14 +399,14 @@ class TestPlayToneExtended:
     def test_play_tone_with_soft_pop_style(self, mock_sd):
         """Test play_tone with soft_pop style."""
         from dictate.config import ToneConfig
-        
+
         config = ToneConfig(enabled=True, style="soft_pop", volume=0.15)
-        play_tone(config, 880)
-        
-        # Should call sd.play with float32 array
+        play_tone(config, 880, sample_rate=16_000)
+
+        # Should call sd.play with float32 array at the passed sample rate
         mock_sd.play.assert_called_once()
         args = mock_sd.play.call_args
-        assert args[0][1] == 44100  # TONE_SAMPLE_RATE
+        assert args[0][1] == 16_000  # uses passed sample_rate
         assert args[1]["blocking"] is False
 
     @patch("dictate.audio.sd")

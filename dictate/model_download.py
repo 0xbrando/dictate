@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 MODEL_SIZES: dict[str, float] = {
     # Whisper models
     "mlx-community/whisper-large-v3-turbo": 1.5,
-    # LLM models (Qwen 3 — text-only, mlx-lm compatible)
+    # LLM models — instruction models (preferred for text cleanup)
+    "mlx-community/Qwen2.5-1.5B-Instruct-4bit": 0.95,
+    "mlx-community/Qwen2.5-3B-Instruct-4bit": 1.8,
+    # LLM models — reasoning models (Qwen3, have <think> overhead)
     "mlx-community/Qwen3-0.6B-4bit": 0.34,
     "mlx-community/Qwen3-1.7B-4bit": 1.1,
-    # Legacy (kept for users who already cached it)
-    "mlx-community/Qwen2.5-3B-Instruct-4bit": 1.8,
     # Parakeet models
     "mlx-community/parakeet-tdt-0.6b-v3": 0.5,
 }

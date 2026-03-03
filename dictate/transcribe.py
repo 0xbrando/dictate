@@ -197,6 +197,131 @@ class ParakeetTranscriber:
             return _dedup_transcription(text)
 
 
+class ANETranscriber:
+    """Speech-to-text using Apple Neural Engine via the dictate-stt Swift CLI."""
+
+    _BINARY_NAME = "dictate-stt"
+
+    def __init__(self, config: "WhisperConfig", binary_path: str | None = None) -> None:
+        self._config = config
+        self._binary = binary_path or self._find_binary()
+        self._model_loaded = False
+
+    @staticmethod
+    def _find_binary() -> str | None:
+        """Locate the dictate-stt binary in PATH or known build locations."""
+        import shutil
+
+        found = shutil.which("dictate-stt")
+        if found:
+            return found
+
+        # Check relative to this file: app bundle and dev build
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates = [
+            os.path.join(base, "MacOS", "dictate-stt"),
+            os.path.join(base, "swift-stt", ".build", "release", "dictate-stt"),
+            os.path.join(base, "..", "swift-stt", ".build", "release", "dictate-stt"),
+        ]
+        for path in candidates:
+            path = os.path.realpath(path)
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+
+        return None
+
+    @staticmethod
+    def is_available() -> bool:
+        """Check if ANE transcription is available (binary exists + macOS 14+)."""
+        import platform
+
+        if platform.system() != "Darwin":
+            return False
+
+        mac_ver = platform.mac_ver()[0]
+        if mac_ver:
+            try:
+                if int(mac_ver.split(".")[0]) < 14:
+                    return False
+            except (ValueError, IndexError):
+                return False
+
+        return bool(ANETranscriber._find_binary())
+
+    def load_model(self) -> None:
+        """Verify binary exists. CoreML models download on first transcribe."""
+        if self._model_loaded:
+            return
+
+        if not self._binary:
+            raise RuntimeError(
+                "dictate-stt binary not found. Build it with: "
+                "cd swift-stt && swift build -c release"
+            )
+
+        import subprocess
+
+        print(f"   ANE STT: {self._binary}...", end=" ", flush=True)
+        try:
+            proc = subprocess.run(
+                [self._binary, "check"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"ANE STT check failed: {proc.stderr.strip()}")
+        except FileNotFoundError:
+            raise RuntimeError(f"dictate-stt not found at: {self._binary}")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("dictate-stt check timed out")
+
+        self._model_loaded = True
+        print("\u2713")
+
+    def transcribe(
+        self,
+        audio: "NDArray[np.int16]",
+        sample_rate: int,
+        language: str | None = None,  # unused — FluidAudio handles language internally
+    ) -> str:
+        import subprocess
+
+        if not self._binary:
+            raise RuntimeError("dictate-stt binary not found")
+
+        # ANE requires >= 1 second of audio. Pad short clips with silence.
+        min_samples = sample_rate  # 1 second
+        if len(audio) < min_samples:
+            import numpy as np
+            audio = np.pad(audio, (0, min_samples - len(audio)), mode="constant")
+
+        with _temp_wav_context(audio, sample_rate) as wav_path:
+            cmd = [self._binary, "transcribe", wav_path]
+
+            try:
+                proc = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                logger.error("ANE transcription timed out after 30s")
+                return ""
+            except FileNotFoundError:
+                logger.error("dictate-stt not found at: %s", self._binary)
+                return ""
+
+            if proc.returncode != 0:
+                logger.error("ANE transcription failed: %s", proc.stderr.strip())
+                return ""
+
+            try:
+                result = json.loads(proc.stdout)
+                text = result.get("text", "")
+                logger.info("ANE transcribed in %dms", result.get("duration_ms", 0))
+                return _dedup_transcription(str(text).strip())
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse ANE output: %s", e)
+                return proc.stdout.strip()
+
+
 # ── Shared postprocessing ────────────────────────────────────────
 
 
@@ -325,9 +450,12 @@ class TextCleaner:
         from mlx_lm.sample_utils import make_sampler
 
         system_prompt = self._config.get_system_prompt(output_language)
+        # Qwen3 reasoning models burn max_tokens on <think> blocks before
+        # producing output. /no_think disables this for simple cleanup tasks.
+        user_content = f"/no_think\n{text}" if "qwen3" in self._config.model.lower() else text
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text},
+            {"role": "user", "content": user_content},
         ]
         prompt = self._tokenizer.apply_chat_template(
             messages,
@@ -508,10 +636,16 @@ class TranscriptionPipeline:
     ) -> None:
         from dictate.config import LLMBackend, STTEngine
 
-        if whisper_config.engine == STTEngine.PARAKEET:
-            self._whisper: WhisperTranscriber | ParakeetTranscriber = ParakeetTranscriber(
-                whisper_config
-            )
+        if whisper_config.engine == STTEngine.ANE:
+            if ANETranscriber.is_available():
+                self._whisper: WhisperTranscriber | ParakeetTranscriber | ANETranscriber = (
+                    ANETranscriber(whisper_config)
+                )
+            else:
+                logger.warning("ANE binary not found, falling back to Parakeet MLX")
+                self._whisper = ParakeetTranscriber(whisper_config)
+        elif whisper_config.engine == STTEngine.PARAKEET:
+            self._whisper = ParakeetTranscriber(whisper_config)
         else:
             self._whisper = WhisperTranscriber(whisper_config)
         if llm_config.backend == LLMBackend.API:
@@ -533,11 +667,12 @@ class TranscriptionPipeline:
         if llm_config.backend != LLMBackend.API:
             return None
 
-        # Pick the fastest cached local model
+        # Pick the fastest cached local model (prefer instruction models over reasoning)
         for model in [
+            LLMModel.QWEN25_1_5B,
+            LLMModel.QWEN_3B,
             LLMModel.QWEN3_0_6B,
             LLMModel.QWEN3_1_7B,
-            LLMModel.QWEN_3B,
         ]:
             if is_model_cached(model.hf_repo):
                 fast_config = LLMConfig(
@@ -578,24 +713,34 @@ class TranscriptionPipeline:
         from dictate.config import is_model_cached
         from dictate.model_download import download_model
 
-        # Download Whisper if needed with progress
-        whisper_cached = is_model_cached(self._whisper._config.model)
-        if not whisper_cached:
-            if on_progress:
-                on_progress("Downloading Whisper model...")
+        # ANE uses its own model management (CoreML via Swift binary)
+        is_ane = isinstance(self._whisper, ANETranscriber)
+        engine_name = (
+            "ANE" if is_ane
+            else "Whisper" if isinstance(self._whisper, WhisperTranscriber)
+            else "Parakeet"
+        )
 
-            def whisper_progress(percent: float) -> None:
+        if not is_ane:
+            # Download STT model if needed with progress
+            whisper_cached = is_model_cached(self._whisper._config.model)
+            if not whisper_cached:
                 if on_progress:
-                    on_progress(f"Downloading Whisper ({int(percent)}%)...")
+                    on_progress(f"Downloading {engine_name} model...")
 
-            try:
-                download_model(self._whisper._config.model, progress_callback=whisper_progress)
-            except Exception:
-                logger.exception("Failed to download Whisper model")
-                raise
+                def whisper_progress(percent: float) -> None:
+                    if on_progress:
+                        on_progress(f"Downloading {engine_name} ({int(percent)}%)...")
+
+                try:
+                    download_model(self._whisper._config.model, progress_callback=whisper_progress)
+                except Exception:
+                    logger.exception("Failed to download STT model")
+                    raise
 
         if on_progress:
-            on_progress("Loading Whisper...")
+            label = "Checking ANE binary..." if is_ane else f"Loading {engine_name}..."
+            on_progress(label)
         self._whisper.load_model()
 
         # Load fast cleaner if configured
@@ -665,13 +810,6 @@ class TranscriptionPipeline:
         logger.info("Transcribed in %.1fs (%d words)", t1 - t0, word_count)
         logger.debug("Transcription text: %s...", raw_text[:80] if len(raw_text) > 80 else raw_text)
 
-        # Raw mode: bypass LLM cleanup entirely, return transcription as-is
-        if self._llm_config.writing_style == "raw":
-            logger.info("Raw mode — skipping LLM cleanup")
-            if self._is_duplicate(raw_text):
-                return None
-            return raw_text
-
         # Smart skip: if LLM is enabled but text already looks clean,
         # skip the expensive LLM round-trip. Translation mode always
         # runs through LLM since it needs to translate.
@@ -703,8 +841,8 @@ class TranscriptionPipeline:
         self.last_cleanup_failed = failed
 
         if not cleaned_text:
-            logger.info("Cleanup failed")
-            return None
+            logger.info("Cleanup returned empty, using raw transcription")
+            cleaned_text = raw_text
 
         if cleaned_text != raw_text:
             logger.info(

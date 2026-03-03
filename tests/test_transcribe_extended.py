@@ -319,7 +319,7 @@ class TestTextCleaner:
         with patch.dict(sys.modules, {"mlx_lm": mock_mlx, "mlx_lm.sample_utils": mock_su}):
             c = TextCleaner(config)
             c.load_model()
-            mock_mlx.load.assert_called_once_with(config.model)
+            mock_mlx.load.assert_called_once_with(config.model, tokenizer_config={"trust_remote_code": True})
             assert c._model is not None
             assert c._tokenizer is not None
             captured = capsys.readouterr()
@@ -705,7 +705,7 @@ class TestTranscriptionPipeline:
         assert pipe.process(np.zeros(16000, dtype=np.int16)) == "Hello."
         assert pipe.process(np.zeros(16000, dtype=np.int16)) is None
 
-    def test_process_empty_cleanup(self, whisper_config, llm_config):
+    def test_process_empty_cleanup_falls_back_to_raw(self, whisper_config, llm_config):
         pipe = TranscriptionPipeline(whisper_config, llm_config)
         pipe._whisper = MagicMock()
         pipe._whisper.transcribe.return_value = "some words that need cleanup here"
@@ -714,7 +714,8 @@ class TestTranscriptionPipeline:
         pipe._cleaner._last_cleanup_failed = False
         pipe._fast_cleaner = None
 
-        assert pipe.process(np.zeros(16000, dtype=np.int16)) is None
+        # Empty cleanup falls back to raw transcription
+        assert pipe.process(np.zeros(16000, dtype=np.int16)) == "some words that need cleanup here"
 
     def test_process_surfaces_cleanup_failure(self, whisper_config, llm_config):
         pipe = TranscriptionPipeline(whisper_config, llm_config)
@@ -824,7 +825,7 @@ class TestPreloadModels:
         pipeline.preload_models(on_progress=progress.append)
         pipeline._whisper.load_model.assert_called_once()
         pipeline._cleaner.load_model.assert_called_once()
-        assert any("Whisper" in c for c in progress)
+        assert any("Loading" in c for c in progress)
 
     @patch("dictate.model_download.download_model")
     @patch("dictate.config.is_model_cached", return_value=False)

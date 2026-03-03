@@ -68,7 +68,7 @@ def get_device_name(device_id: int | None) -> str:
     return info["name"]  # type: ignore[index,return-value]
 
 
-TONE_SAMPLE_RATE = 44_100
+_tone_lock = threading.Lock()
 
 
 def play_tone(
@@ -79,7 +79,7 @@ def play_tone(
     if not config.enabled:
         return
 
-    sr = TONE_SAMPLE_RATE
+    sr = sample_rate
     style = getattr(config, "style", "simple")
     vol = config.volume
 
@@ -97,7 +97,22 @@ def play_tone(
     else:
         tone = _synth_simple(frequency_hz, config.duration_s, vol, sr)
 
-    sd.play(tone.astype(np.float32), sr, blocking=False)
+    def _play() -> None:
+        if not _tone_lock.acquire(blocking=False):
+            return  # another tone in progress — skip rather than queue
+        try:
+            sd.stop()
+            sd.play(tone.astype(np.float32), sr, blocking=False)
+        except Exception:
+            logger.debug("Tone playback failed, skipping (cosmetic)")
+            try:
+                sd.stop()
+            except Exception:
+                pass
+        finally:
+            _tone_lock.release()
+
+    threading.Thread(target=_play, daemon=True).start()
 
 
 def _synth_simple(freq: int, duration_s: float, vol: float, sr: int) -> "NDArray":
@@ -260,33 +275,35 @@ class AudioCapture:
         return duration
 
     def _start_stream(self) -> None:
+        device = self._audio_config.device_id
         try:
             self._stream = sd.InputStream(
                 samplerate=self._audio_config.sample_rate,
                 channels=self._audio_config.channels,
                 dtype="float32",
                 blocksize=self._audio_config.block_size,
-                device=self._audio_config.device_id,
+                device=device,
                 callback=self._audio_callback,
             )
             self._stream.start()
-        except sd.PortAudioError as e:
-            error_msg = str(e).lower()
-            if "invalid device" in error_msg or "device not found" in error_msg or "bad device" in error_msg:
-                logger.error("Audio device not found or invalid: %s", e)
-                self._stream = None
-                # Set recording to False since we can't start
-                with self._lock:
-                    self._recording = False
-                raise RuntimeError(f"Audio device not available: {e}") from e
-            else:
-                logger.error("Failed to start audio stream: %s", e)
-                self._stream = None
-                with self._lock:
-                    self._recording = False
-                raise
-        except Exception as e:
-            logger.exception("Unexpected error starting audio stream")
+        except (sd.PortAudioError, Exception) as e:
+            # If a specific device was selected, try system default before giving up
+            if device is not None:
+                logger.warning("Device %s failed (%s), falling back to system default", device, e)
+                try:
+                    self._stream = sd.InputStream(
+                        samplerate=self._audio_config.sample_rate,
+                        channels=self._audio_config.channels,
+                        dtype="float32",
+                        blocksize=self._audio_config.block_size,
+                        device=None,
+                        callback=self._audio_callback,
+                    )
+                    self._stream.start()
+                    return
+                except Exception as fallback_err:
+                    logger.error("System default device also failed: %s", fallback_err)
+            logger.error("Failed to start audio stream: %s", e)
             self._stream = None
             with self._lock:
                 self._recording = False

@@ -123,8 +123,8 @@ class TestPreferencesV1Migration:
         monkeypatch.setattr(presets.Preferences, "_refresh_discovery", lambda self: None)
 
         loaded = presets.Preferences.load()
-        # v1: 2 -> 3 (adds 1 for presets >= 1)
-        assert loaded.quality_preset == 3
+        # v1: 2 -> 3 (v1 migration) -> 2 (v6 migration: old idx 3 = Qwen2.5-3B stays at idx 2)
+        assert loaded.quality_preset == 2
 
 
 class TestRefreshDiscovery:
@@ -238,20 +238,26 @@ class TestSttProperties:
         from dictate.config import STTEngine
         import dictate.presets as presets
 
-        prefs = presets.Preferences(stt_preset=0)  # Parakeet
+        prefs = presets.Preferences(stt_preset=0)  # ANE
+        assert prefs.stt_engine == STTEngine.ANE
+
+        prefs = presets.Preferences(stt_preset=1)  # Parakeet
         assert prefs.stt_engine == STTEngine.PARAKEET
 
-        prefs = presets.Preferences(stt_preset=1)  # Whisper
+        prefs = presets.Preferences(stt_preset=2)  # Whisper
         assert prefs.stt_engine == STTEngine.WHISPER
 
     def test_stt_model_property(self):
         """Line 319: stt_model property returns correct model."""
         import dictate.presets as presets
 
-        prefs = presets.Preferences(stt_preset=0)  # Parakeet
+        prefs = presets.Preferences(stt_preset=0)  # ANE
+        assert "coreml" in prefs.stt_model.lower()
+
+        prefs = presets.Preferences(stt_preset=1)  # Parakeet
         assert "parakeet" in prefs.stt_model.lower()
 
-        prefs = presets.Preferences(stt_preset=1)  # Whisper
+        prefs = presets.Preferences(stt_preset=2)  # Whisper
         assert "whisper" in prefs.stt_model.lower()
 
 

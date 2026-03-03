@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class STTEngine(str, Enum):
     WHISPER = "whisper"
     PARAKEET = "parakeet"
+    ANE = "ane"
 
 
 class OutputMode(str, Enum):
@@ -32,6 +33,7 @@ class LLMBackend(str, Enum):
 
 
 class LLMModel(str, Enum):
+    QWEN25_1_5B = "qwen2.5-1.5b"
     QWEN3_0_6B = "qwen3-0.6b"
     QWEN3_1_7B = "qwen3-1.7b"
     QWEN_3B = "qwen-3b"
@@ -39,11 +41,12 @@ class LLMModel(str, Enum):
     @property
     def hf_repo(self) -> str:
         repos = {
+            LLMModel.QWEN25_1_5B: "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
             LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-4bit",
             LLMModel.QWEN3_1_7B: "mlx-community/Qwen3-1.7B-4bit",
             LLMModel.QWEN_3B: "mlx-community/Qwen2.5-3B-Instruct-4bit",
         }
-        return repos.get(self, repos[LLMModel.QWEN3_0_6B])
+        return repos.get(self, repos[LLMModel.QWEN25_1_5B])
 
 
 # STT Models
@@ -194,7 +197,7 @@ LANGUAGE_NAMES = {
 class LLMConfig:
     enabled: bool = True
     backend: LLMBackend = LLMBackend.LOCAL
-    model_choice: LLMModel = LLMModel.QWEN3_0_6B
+    model_choice: LLMModel = LLMModel.QWEN25_1_5B
     api_url: str = "http://localhost:8005/v1/chat/completions"
     endpoint: str = "localhost:11434"  # LLM endpoint for local API servers
     max_tokens: int = 300
@@ -246,11 +249,17 @@ class LLMConfig:
                 "Fix punctuation and capitalization. "
                 "Output ONLY the cleaned-up text exactly as they said it."
             ),
-            "formal": (
+            "professional": (
                 "You are a dictation post-processor. "
-                "Rewrite in a professional, formal tone. "
+                "Rewrite in a professional, polished tone. "
                 "Use proper grammar and complete sentences. "
                 "Output ONLY the rewritten text."
+            ),
+            "bullets": (
+                "You are a dictation post-processor. "
+                "Rewrite the input as concise bullet points. "
+                "Each bullet should capture one key idea. "
+                "Output ONLY the bullet points, one per line, starting with '- '."
             ),
         }
 
@@ -328,6 +337,17 @@ class Config:
 
         if verbose := os.environ.get("DICTATE_VERBOSE"):
             config.verbose = verbose.lower() in ("1", "true", "yes")
+
+        # STT engine override
+        if stt_engine := os.environ.get("DICTATE_STT_ENGINE"):
+            try:
+                config.whisper.engine = STTEngine(stt_engine.lower())
+            except ValueError:
+                logger.warning(
+                    "Invalid DICTATE_STT_ENGINE=%r, using default %r",
+                    stt_engine,
+                    config.whisper.engine,
+                )
 
         # LLM cleanup
         if llm_enabled := os.environ.get("DICTATE_LLM_CLEANUP"):

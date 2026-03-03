@@ -37,7 +37,7 @@ def detect_chip() -> str:
 def recommended_quality_preset() -> int:
     """Return the best quality preset index for this hardware.
 
-    Presets: [0]=API/Endpoint, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B
+    Presets: [0]=API/Endpoint, [1]=0.6B, [2]=1.7B, [3]=3B
     """
     chip = detect_chip().lower()
     if "ultra" in chip or "max" in chip:
@@ -48,6 +48,14 @@ def recommended_quality_preset() -> int:
 PREFS_DIR = Path.home() / "Library" / "Application Support" / "Dictate"
 PREFS_FILE = PREFS_DIR / "preferences.json"
 DICTIONARY_FILE = PREFS_DIR / "dictionary.json"
+
+# Languages supported by Parakeet TDT v3 / ANE (25 European languages + Russian)
+# Source: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+PARAKEET_LANGUAGES = frozenset({
+    "auto", "en", "bg", "hr", "cs", "da", "nl", "et", "fi", "fr", "de", "el",
+    "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv",
+    "ru", "uk",
+})
 
 INPUT_LANGUAGES = [
     ("auto", "Auto-detect"),
@@ -93,24 +101,19 @@ class QualityPreset:
 QUALITY_PRESETS: list[QualityPreset] = [
     QualityPreset(
         label="API Server",
-        llm_model=LLMModel.QWEN3_0_6B,
+        llm_model=LLMModel.QWEN25_1_5B,
         backend=LLMBackend.API,
         description="Use external API server (LM Studio, Ollama, etc.)",
     ),
     QualityPreset(
-        label="Fast - Qwen3 0.6B (~80ms, 335MB)",
-        llm_model=LLMModel.QWEN3_0_6B,
-        description="Fastest local cleanup, tiny download",
+        label="Qwen2.5 1.5B (~250ms, 950MB)",
+        llm_model=LLMModel.QWEN25_1_5B,
+        description="Fast and reliable",
     ),
     QualityPreset(
-        label="Balanced - Qwen3 1.7B (~150ms, 1.1GB)",
-        llm_model=LLMModel.QWEN3_1_7B,
-        description="Better grammar and rewriting",
-    ),
-    QualityPreset(
-        label="Quality - Qwen2.5 3B (~250ms, 1.8GB)",
+        label="Qwen2.5 3B (~400ms, 1.8GB)",
         llm_model=LLMModel.QWEN_3B,
-        description="Best quality, larger download",
+        description="Best quality",
     ),
 ]
 
@@ -161,7 +164,13 @@ class STTPreset:
 
 STT_PRESETS: list[STTPreset] = [
     STTPreset(
-        label="Parakeet (default)",
+        label="ANE (Neural Engine)",
+        engine=STTEngine.ANE,
+        model="parakeet-tdt-v3-coreml",
+        description="ANE-accelerated, frees GPU",
+    ),
+    STTPreset(
+        label="Parakeet",
         engine=STTEngine.PARAKEET,
         model="mlx-community/parakeet-tdt-0.6b-v3",
         description="25 languages, fastest",
@@ -177,8 +186,8 @@ STT_PRESETS: list[STTPreset] = [
 
 WRITING_STYLES: list[tuple[str, str, str]] = [
     ("clean", "Clean Up", "Fixes punctuation, keeps your words"),
-    ("formal", "Formal", "Professional tone and grammar"),
-    ("raw", "Raw (No Cleanup)", "Exact transcription, no LLM processing"),
+    ("professional", "Professional", "Polished tone and grammar"),
+    ("bullets", "Bullet Points", "Rewrites as concise bullet points"),
 ]
 
 
@@ -186,7 +195,7 @@ WRITING_STYLES: list[tuple[str, str, str]] = [
 class Preferences:
     device_id: int | None = None
     quality_preset: int = 1  # index into QUALITY_PRESETS (default: Speedy 1.5B)
-    stt_preset: int = 0  # index into STT_PRESETS (default: Parakeet)
+    stt_preset: int = 0  # index into STT_PRESETS (default: ANE)
     input_language: str = "auto"
     output_language: str = "auto"
     llm_cleanup: bool = True
@@ -206,7 +215,7 @@ class Preferences:
         data = asdict(self)
         # Remove cached discovery
         data.pop("_discovered_model", None)
-        data["_prefs_version"] = 4  # v4 adds llm_endpoint
+        data["_prefs_version"] = 7  # v7: ANE first in STT presets
         try:
             PREFS_FILE.write_text(json.dumps(data, indent=2))
             os.chmod(PREFS_FILE, 0o600)
@@ -219,8 +228,17 @@ class Preferences:
             # First launch: auto-detect best settings for this hardware
             chip = detect_chip()
             preset = recommended_quality_preset()
-            logger.info("First launch on %s — auto-selected quality preset %d", chip, preset)
-            prefs = cls(quality_preset=preset)
+            # Default to ANE (index 0); fall back to Parakeet (index 1) if unavailable
+            stt = 0  # default: ANE on Neural Engine
+            try:
+                from dictate.transcribe import ANETranscriber
+                if not ANETranscriber.is_available():
+                    stt = 1  # Parakeet on GPU
+                    logger.info("ANE binary not found — falling back to Parakeet STT")
+            except Exception:
+                stt = 1  # Parakeet fallback
+            logger.info("First launch on %s — quality preset %d, stt preset %d", chip, preset, stt)
+            prefs = cls(quality_preset=preset, stt_preset=stt)
             prefs._refresh_discovery()  # Discover model at startup
             prefs.save()
             return prefs
@@ -231,6 +249,9 @@ class Preferences:
             # v2: [0]=API, [1]=0.5B, [2]=1.5B, [3]=3B, [4]=7B, [5]=14B
             # v3: [0]=API, [1]=1.5B, [2]=3B, [3]=7B, [4]=14B  (0.5B removed)
             # v4: same as v3 but adds llm_endpoint field
+            # v5: STT presets: inserted ANE at index 1, Whisper moved 1→2
+            # v6: LLM presets: [0]=API, [1]=Qwen2.5-1.5B, [2]=Qwen2.5-3B
+            # v7: STT presets reordered: [0]=ANE, [1]=Parakeet, [2]=Whisper
             raw_preset = data.get("quality_preset", 1)
             version = data.get("_prefs_version", 1)
             if version == 1 and raw_preset >= 1:
@@ -240,10 +261,35 @@ class Preferences:
                     raw_preset = max(0, raw_preset)  # API stays 0, 0.5B→1.5B(1)
                 elif raw_preset >= 2:
                     raw_preset -= 1  # 2→1, 3→2, 4→3, 5→4
+
+            # v5→v6: Qwen3 reasoning models replaced with Qwen2.5 instruction models
+            # v5: [0]=API, [1]=Qwen3-0.6B, [2]=Qwen3-1.7B, [3]=Qwen2.5-3B
+            # v6: [0]=API, [1]=Qwen2.5-1.5B, [2]=Qwen2.5-3B
+            if version <= 5 and raw_preset in (1, 2):
+                raw_preset = 1  # Qwen3 0.6B/1.7B → Qwen2.5 1.5B
+            elif version <= 5 and raw_preset == 3:
+                raw_preset = 2  # Qwen2.5 3B stays at index 2
+            # Clamp to valid range
+            raw_preset = min(raw_preset, 2)
+
+            # Migrate STT preset:
+            # v4 had [0]=Parakeet, [1]=Whisper
+            # v5-v6 had [0]=Parakeet, [1]=ANE, [2]=Whisper
+            # v7 has [0]=ANE, [1]=Parakeet, [2]=Whisper
+            raw_stt = data.get("stt_preset", 0)
+            if version <= 4 and raw_stt >= 1:
+                raw_stt += 1  # Whisper 1→2
+            # v5/v6→v7: swap Parakeet(0)↔ANE(1), Whisper(2) stays
+            if version <= 6:
+                if raw_stt == 0:
+                    raw_stt = 1  # Parakeet 0→1
+                elif raw_stt == 1:
+                    raw_stt = 0  # ANE 1→0
+
             prefs = cls(
                 device_id=data.get("device_id"),
                 quality_preset=raw_preset,
-                stt_preset=data.get("stt_preset", 0),
+                stt_preset=raw_stt,
                 input_language=data.get("input_language", "auto"),
                 output_language=data.get("output_language", "auto"),
                 llm_cleanup=data.get("llm_cleanup", True),

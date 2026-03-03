@@ -69,13 +69,13 @@ class TestPresetData:
         keys = [k for k, _, _ in WRITING_STYLES]
         assert "clean" in keys
 
-    def test_writing_styles_include_formal(self):
+    def test_writing_styles_include_professional(self):
         keys = [k for k, _, _ in WRITING_STYLES]
-        assert "formal" in keys
+        assert "professional" in keys
 
-    def test_writing_styles_include_raw(self):
+    def test_writing_styles_include_bullets(self):
         keys = [k for k, _, _ in WRITING_STYLES]
-        assert "raw" in keys
+        assert "bullets" in keys
 
 
 # ── Hardware detection ─────────────────────────────────────────
@@ -127,7 +127,7 @@ class TestPreferences:
 
     def test_stt_engine_property(self):
         p = Preferences(stt_preset=0)
-        assert p.stt_engine == STTEngine.PARAKEET
+        assert p.stt_engine == STTEngine.ANE
 
     def test_stt_engine_clamps(self):
         p = Preferences(stt_preset=999)
@@ -176,18 +176,18 @@ class TestPreferencesPersistence:
         monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_file)
 
         p = Preferences(
-            quality_preset=3,
+            quality_preset=2,
             input_language="ja",
-            writing_style="formal",
+            writing_style="professional",
             ptt_key="ctrl_r",
         )
         p.save()
 
         assert prefs_file.exists()
         loaded = Preferences.load()
-        assert loaded.quality_preset == 3
+        assert loaded.quality_preset == 2
         assert loaded.input_language == "ja"
-        assert loaded.writing_style == "formal"
+        assert loaded.writing_style == "professional"
         assert loaded.ptt_key == "ctrl_r"
 
     def test_load_missing_file_creates_defaults(self, tmp_path, monkeypatch):
@@ -304,7 +304,8 @@ class TestPrefsEdgeCases:
         monkeypatch.setattr("dictate.presets.PREFS_DIR", prefs_dir)
         monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_file)
         monkeypatch.setattr("dictate.presets.DICTIONARY_FILE", dict_file)
-        # v1 uses _prefs_version=1; quality_preset 1 → 1+1=2
+        # v1 uses _prefs_version=1; quality_preset 1 → 1+1=2 (v1 migration)
+        # → 1 (v6 migration: old index 2 = Qwen3-1.7B → Qwen2.5-1.5B at index 1)
         prefs_file.write_text(
             json.dumps(
                 {
@@ -315,7 +316,7 @@ class TestPrefsEdgeCases:
             )
         )
         loaded = Preferences.load()
-        assert loaded.quality_preset == 2
+        assert loaded.quality_preset == 1
 
     def test_load_v2_migration_high_quality_preset(self, tmp_path, monkeypatch):
         """Load v2 preferences with high quality preset index."""
@@ -328,7 +329,8 @@ class TestPrefsEdgeCases:
         monkeypatch.setattr("dictate.presets.PREFS_DIR", prefs_dir)
         monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_file)
         monkeypatch.setattr("dictate.presets.DICTIONARY_FILE", dict_file)
-        # v2 uses _prefs_version=2; quality_preset 3 (>=2) → 3-1=2
+        # v2 uses _prefs_version=2; quality_preset 3 (>=2) → 3-1=2 (v2 migration)
+        # → 1 (v6 migration: old index 2 = Qwen3-1.7B → Qwen2.5-1.5B at index 1)
         prefs_file.write_text(
             json.dumps(
                 {
@@ -338,7 +340,7 @@ class TestPrefsEdgeCases:
             )
         )
         loaded = Preferences.load()
-        assert loaded.quality_preset == 2
+        assert loaded.quality_preset == 1
 
     def test_load_v2_migration_low_quality_preset(self, tmp_path, monkeypatch):
         """Load v2 preferences with low quality preset (0.5B→1.5B)."""

@@ -122,10 +122,10 @@ class TestLLMConfig:
         assert "NEVER answer questions" in prompt
         assert "Fix punctuation" in prompt
 
-    def test_system_prompt_formal(self):
-        c = LLMConfig(writing_style="formal")
+    def test_system_prompt_professional(self):
+        c = LLMConfig(writing_style="professional")
         prompt = c.get_system_prompt()
-        assert "professional" in prompt.lower() or "formal" in prompt.lower()
+        assert "professional" in prompt.lower()
 
     def test_system_prompt_translation(self):
         c = LLMConfig(writing_style="clean")
@@ -219,7 +219,7 @@ class TestConfigFromEnv:
     def test_invalid_model_keeps_default(self, monkeypatch):
         monkeypatch.setenv("DICTATE_LLM_MODEL", "nonexistent-model")
         c = Config.from_env()
-        assert c.llm.model_choice == LLMModel.QWEN3_0_6B  # default preserved
+        assert c.llm.model_choice == LLMModel.QWEN25_1_5B  # default preserved
 
 
 class TestAudioConfigValidation:

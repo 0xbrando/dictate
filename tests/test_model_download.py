@@ -30,25 +30,10 @@ class TestGetModelSize:
         size = get_model_size("mlx-community/Qwen2.5-3B-Instruct-4bit")
         assert size == "1.8GB"
 
-    def test_known_qwen_7b(self):
-        """Test getting size for Qwen 7B model."""
-        size = get_model_size("mlx-community/Qwen2.5-7B-Instruct-4bit")
-        assert size == "4.2GB"
-
-    def test_known_qwen_14b(self):
-        """Test getting size for Qwen 14B model."""
-        size = get_model_size("mlx-community/Qwen2.5-14B-Instruct-4bit")
-        assert size == "8.8GB"
-
     def test_known_qwen_1_5b(self):
         """Test getting size for Qwen 1.5B model."""
         size = get_model_size("mlx-community/Qwen2.5-1.5B-Instruct-4bit")
-        assert size == "1.0GB"
-
-    def test_known_phi3(self):
-        """Test getting size for Phi-3 model."""
-        size = get_model_size("mlx-community/Phi-3-mini-4k-instruct-4bit")
-        assert size == "1.8GB"
+        assert size == "0.9GB"
 
     def test_known_parakeet(self):
         """Test getting size for Parakeet model."""
@@ -240,9 +225,6 @@ class TestModelSizesMapping:
             "mlx-community/whisper-large-v3-turbo",
             "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
             "mlx-community/Qwen2.5-3B-Instruct-4bit",
-            "mlx-community/Qwen2.5-7B-Instruct-4bit",
-            "mlx-community/Qwen2.5-14B-Instruct-4bit",
-            "mlx-community/Phi-3-mini-4k-instruct-4bit",
             "mlx-community/parakeet-tdt-0.6b-v3",
         ]
         

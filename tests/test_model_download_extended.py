@@ -33,26 +33,11 @@ class TestGetModelSizeExtended:
     def test_known_qwen_1_5b(self):
         """Test getting size for Qwen 1.5B model."""
         size = get_model_size("mlx-community/Qwen2.5-1.5B-Instruct-4bit")
-        assert size == "1.0GB"
+        assert size == "0.9GB"
 
     def test_known_qwen_3b(self):
         """Test getting size for Qwen 3B model."""
         size = get_model_size("mlx-community/Qwen2.5-3B-Instruct-4bit")
-        assert size == "1.8GB"
-
-    def test_known_qwen_7b(self):
-        """Test getting size for Qwen 7B model."""
-        size = get_model_size("mlx-community/Qwen2.5-7B-Instruct-4bit")
-        assert size == "4.2GB"
-
-    def test_known_qwen_14b(self):
-        """Test getting size for Qwen 14B model."""
-        size = get_model_size("mlx-community/Qwen2.5-14B-Instruct-4bit")
-        assert size == "8.8GB"
-
-    def test_known_phi3(self):
-        """Test getting size for Phi-3 model."""
-        size = get_model_size("mlx-community/Phi-3-mini-4k-instruct-4bit")
         assert size == "1.8GB"
 
     def test_known_parakeet(self):
@@ -85,29 +70,14 @@ class TestGetModelSizeGbExtended:
         assert isinstance(size, float)
         assert size == 1.5
 
-    def test_qwen_1_5b_returns_1_0(self):
-        """Test Qwen 1.5B returns 1.0."""
+    def test_qwen_1_5b_returns_0_95(self):
+        """Test Qwen 1.5B returns 0.95."""
         size = get_model_size_gb("mlx-community/Qwen2.5-1.5B-Instruct-4bit")
-        assert size == 1.0
+        assert size == 0.95
 
     def test_qwen_3b_returns_1_8(self):
         """Test Qwen 3B returns 1.8."""
         size = get_model_size_gb("mlx-community/Qwen2.5-3B-Instruct-4bit")
-        assert size == 1.8
-
-    def test_qwen_7b_returns_4_2(self):
-        """Test Qwen 7B returns 4.2."""
-        size = get_model_size_gb("mlx-community/Qwen2.5-7B-Instruct-4bit")
-        assert size == 4.2
-
-    def test_qwen_14b_returns_8_8(self):
-        """Test Qwen 14B returns 8.8."""
-        size = get_model_size_gb("mlx-community/Qwen2.5-14B-Instruct-4bit")
-        assert size == 8.8
-
-    def test_phi3_returns_1_8(self):
-        """Test Phi-3 returns 1.8."""
-        size = get_model_size_gb("mlx-community/Phi-3-mini-4k-instruct-4bit")
         assert size == 1.8
 
     def test_parakeet_returns_0_5(self):
@@ -431,9 +401,6 @@ class TestModelSizesConstant:
             "mlx-community/whisper-large-v3-turbo",
             "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
             "mlx-community/Qwen2.5-3B-Instruct-4bit",
-            "mlx-community/Qwen2.5-7B-Instruct-4bit",
-            "mlx-community/Qwen2.5-14B-Instruct-4bit",
-            "mlx-community/Phi-3-mini-4k-instruct-4bit",
             "mlx-community/parakeet-tdt-0.6b-v3",
         ]
         
@@ -448,8 +415,7 @@ class TestModelSizesConstant:
 
     def test_size_precision(self):
         """Test that sizes have reasonable precision."""
-        # All sizes should be in GB with at most 1 decimal place
+        # All sizes should be in GB with at most 2 decimal places
         for model, size in MODEL_SIZES.items():
-            # Check that size * 10 is close to an integer
-            scaled = size * 10
-            assert abs(scaled - round(scaled)) < 0.01, f"{model} size should have at most 1 decimal place"
+            scaled = size * 100
+            assert abs(scaled - round(scaled)) < 0.01, f"{model} size should have at most 2 decimal places"

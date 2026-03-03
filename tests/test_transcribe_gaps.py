@@ -154,7 +154,7 @@ class TestPipelineLoadModels:
             pipeline.preload_models(on_progress=lambda m: progress.append(m))
 
         pipeline._whisper.load_model.assert_called_once()
-        assert any("Loading Whisper" in p for p in progress)
+        assert any("Loading" in p for p in progress)
 
     def test_whisper_download_with_progress(self):
         """Downloads Whisper with progress callbacks."""
@@ -169,7 +169,7 @@ class TestPipelineLoadModels:
             with patch("dictate.model_download.download_model", side_effect=mock_download):
                 pipeline.preload_models(on_progress=lambda m: progress.append(m))
 
-        assert any("Downloading Whisper" in p for p in progress)
+        assert any("Downloading" in p for p in progress)
         assert any("50%" in p for p in progress)
 
     def test_whisper_download_failure_raises(self):

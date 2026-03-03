@@ -19,6 +19,11 @@ from pathlib import Path
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 os.environ.setdefault("DO_NOT_TRACK", "1")
 
+# Suppress HuggingFace/tqdm progress bars globally.  Must be set before any
+# huggingface_hub or tqdm import (parakeet_mlx imports them internally).
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TQDM_DISABLE"] = "1"
+
 # Load .env file if it exists (before importing config)
 try:
     from dotenv import load_dotenv
@@ -68,7 +73,7 @@ def _config_command(args: list[str]) -> int:
             "description": "Quality preset (LLM model size)",
             "values": list(range(len(QUALITY_PRESETS))),
             "aliases": {
-                "api": 0, "speedy": 1, "fast": 2, "balanced": 3, "quality": 4,
+                "api": 0, "fast": 1, "quality": 2,
             },
             "type": "int_or_alias",
         },
@@ -765,6 +770,104 @@ def _acquire_singleton_lock() -> int | None:
         return None
 
 
+def _first_time_download() -> None:
+    """Download models before daemonizing so users see progress in the terminal.
+
+    Only runs when models aren't cached yet (first install). Returning users
+    skip this instantly since everything is already on disk.
+    """
+    try:
+        tty = open("/dev/tty", "w")
+    except OSError:
+        return  # no terminal attached
+
+    try:
+        from dictate.config import is_model_cached
+        from dictate.presets import Preferences, QUALITY_PRESETS, STT_PRESETS
+
+        prefs = Preferences.load()
+        stt = STT_PRESETS[min(prefs.stt_preset, len(STT_PRESETS) - 1)]
+        quality = QUALITY_PRESETS[min(prefs.quality_preset, len(QUALITY_PRESETS) - 1)]
+
+        # Collect models that need downloading: (label, description, hf_repo)
+        needed: list[tuple[str, str, str]] = []
+
+        # STT model (skip for ANE — it manages its own CoreML models)
+        from dictate.config import STTEngine
+        if stt.engine != STTEngine.ANE and not is_model_cached(stt.model):
+            needed.append((
+                "Speech recognition",
+                "Understands what you say — runs 100% on your Mac",
+                stt.model,
+            ))
+
+        # LLM model (skip for API backend)
+        from dictate.config import LLMBackend
+        if quality.backend != LLMBackend.API and not is_model_cached(quality.llm_model.hf_repo):
+            needed.append((
+                "Text cleanup",
+                "Fixes grammar and punctuation — no cloud, no API keys",
+                quality.llm_model.hf_repo,
+            ))
+
+        if not needed:
+            return  # everything cached, skip
+
+        D = "\033[2m"
+        W = "\033[97m"
+        G = "\033[32m"
+        O = "\033[93m"
+        R = "\033[0m"
+        BAR_WIDTH = 30
+
+        tty.write(f"  {W}First-time setup{R} {D}— downloading models (one-time only){R}\n\n")
+        tty.flush()
+
+        from dictate.model_download import download_model, get_model_size_gb
+
+        for i, (label, desc, repo) in enumerate(needed, 1):
+            size = get_model_size_gb(repo)
+            size_str = f"~{size:.1f} GB" if size else ""
+            tty.write(f"  {O}[{i}/{len(needed)}]{R} {label}")
+            if size_str:
+                tty.write(f" {D}({size_str}){R}")
+            tty.write(f"\n  {D}{desc}{R}\n")
+            tty.write(f"  {D}{'░' * BAR_WIDTH}{R}   0%")
+            tty.flush()
+
+            last_pct = [0]
+
+            def on_progress(
+                pct: float,
+                _t=tty, _lp=last_pct,
+                _bw=BAR_WIDTH, _O=O, _D=D, _R=R,
+            ) -> None:
+                p = int(pct)
+                if p <= _lp[0]:
+                    return
+                _lp[0] = p
+                filled = int(_bw * p / 100)
+                bar = "█" * filled + "░" * (_bw - filled)
+                _t.write(f"\r  {_O}{bar}{_R} {p:3d}%")
+                _t.flush()
+
+            try:
+                download_model(repo, progress_callback=on_progress)
+                bar_done = "█" * BAR_WIDTH
+                tty.write(f"\r  {G}{bar_done}{R} {G}done{R}\n\n")
+            except Exception as e:
+                tty.write(f"\n  {D}Download failed: {e} — will retry on next launch.{R}\n\n")
+
+            tty.flush()
+
+        tty.write(f"  {G}All set!{R} {D}Models cached locally — future launches are instant.{R}\n\n")
+        tty.flush()
+    except Exception:
+        pass  # don't block startup on any error
+    finally:
+        tty.close()
+
+
 def _daemonize() -> None:
     """Re-launch as a detached background process.
 
@@ -884,6 +987,32 @@ def main() -> int:
             D = "\033[2m"     # dim
             B = "\033[1m"     # bold
             R = "\033[0m"     # reset
+
+            # Auto-detect chip, mic, and PTT key for the banner
+            _chip = _mic = ""
+            _ptt_label = "Left Ctrl"
+            try:
+                from dictate.presets import detect_chip, Preferences, PTT_KEYS
+                _chip = detect_chip()
+                _prefs = Preferences.load()
+                _ptt_label = next(
+                    (label for key, label in PTT_KEYS if key == _prefs.ptt_key),
+                    "Left Ctrl",
+                )
+            except Exception:
+                pass
+            try:
+                import sounddevice as _sd
+                _dev = _sd.query_devices(kind="input")
+                _mic = _dev["name"] if isinstance(_dev, dict) else ""
+            except Exception:
+                _mic = "System Default"
+
+            _hw_line = f"  {D}{_chip}"
+            if _mic:
+                _hw_line += f" · {_mic}"
+            _hw_line += f"{R}\n"
+
             _tty.write(f"""
 {O}       ___      __        __
 {O}  ____/ (_)____/ /_____ _/ /____
@@ -892,18 +1021,28 @@ def main() -> int:
 {Y}\\__,_/_/\\___/\\__/\\__,_/\\__/\\___/{R}
 
   {W}{B}speak. it types.{R}  {D}v{__version__} · 100% local{R}
+{_hw_line}
+""")
+            _tty.flush()
+            _tty.close()
+            _tty = None
 
-  {D}Dictate is now running in your menu bar.
+            # Download models (first-time only) — shows progress in terminal
+            if not foreground:
+                _first_time_download()
+
+            _tty = open("/dev/tty", "w")
+            _tty.write(f"""  {D}Dictate is now running in your menu bar.
   You can close this terminal — it won't stop the app.{R}
 
   {W}HOW TO USE{R}
-  {D}Hold{R} {O}Left Ctrl{R}       {D}talk, release to transcribe{R}
-  {D}Hold{R} {O}Ctrl + Space{R}    {D}lock recording (hands-free){R}
-  {D}Tap{R}  {O}Ctrl{R}            {D}to stop locked recording{R}
+  {D}Hold{R} {O}{_ptt_label}{R}       {D}talk, release to transcribe{R}
+  {D}Hold{R} {O}{_ptt_label} + Space{R}  {D}lock recording (hands-free){R}
+  {D}Tap{R}  {O}{_ptt_label}{R}       {D}to stop locked recording{R}
   {D}Change the key, model, and more from the menu bar icon.{R}
 
   {W}TIPS{R}
-  {D}Parakeet is English-only. Switch to Whisper for other languages
+  {D}Parakeet supports 25 languages. Switch to Whisper for 99+ languages
   under Advanced → STT Engine.{R}
   {D}Writing styles (Clean, Formal, Bullets) change how your text
   is polished — find them in the menu bar.{R}

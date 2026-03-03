@@ -139,7 +139,7 @@ class TestConfigFromEnvExtended:
 
         monkeypatch.setenv("DICTATE_LLM_MODEL", "invalid-model")
         config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.QWEN3_0_6B  # default
+        assert config.llm.model_choice == LLMModel.QWEN25_1_5B  # default
 
     def test_llm_backend_local_env(self, monkeypatch):
         """Test DICTATE_LLM_BACKEND=local sets local backend."""
@@ -313,11 +313,11 @@ class TestLLMConfigExtended:
         assert "xx" in prompt  # Passes through unknown code
         assert "TRANSLATE" in prompt
 
-    def test_get_system_prompt_formal_style(self):
-        """Test formal writing style prompt."""
-        config = LLMConfig(writing_style="formal")
+    def test_get_system_prompt_professional_style(self):
+        """Test professional writing style prompt."""
+        config = LLMConfig(writing_style="professional")
         prompt = config.get_system_prompt()
-        assert "professional" in prompt.lower() or "formal" in prompt.lower()
+        assert "professional" in prompt.lower()
         assert "NEVER answer questions" in prompt
 
     def test_get_system_prompt_unknown_style_defaults_to_clean(self):

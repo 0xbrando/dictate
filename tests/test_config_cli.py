@@ -55,15 +55,15 @@ class TestConfigShow:
 
     def test_show_with_existing_prefs(self, _isolate_prefs, capsys):
         """Show after setting a preference."""
-        _run_config("set", "writing_style", "formal")
+        _run_config("set", "writing_style", "professional")
         rc = _run_config("show")
         assert rc == 0
         out = capsys.readouterr().out
-        assert "formal" in out
+        assert "professional" in out
 
     def test_show_after_reset(self, capsys):
         """Show after reset returns defaults."""
-        _run_config("set", "writing_style", "raw")
+        _run_config("set", "writing_style", "bullets")
         _run_config("reset")
         rc = _run_config("show")
         assert rc == 0
@@ -76,17 +76,17 @@ class TestConfigShow:
 
 class TestConfigSet:
     def test_set_writing_style(self, capsys):
-        rc = _run_config("set", "writing_style", "formal")
+        rc = _run_config("set", "writing_style", "professional")
         assert rc == 0
         out = capsys.readouterr().out
         assert "writing_style" in out
-        assert "formal" in out
+        assert "professional" in out
 
-    def test_set_writing_style_raw(self, capsys):
-        rc = _run_config("set", "writing_style", "raw")
+    def test_set_writing_style_bullets(self, capsys):
+        rc = _run_config("set", "writing_style", "bullets")
         assert rc == 0
         out = capsys.readouterr().out
-        assert "raw" in out
+        assert "bullets" in out
 
     def test_set_quality_by_index(self, capsys):
         rc = _run_config("set", "quality", "2")
@@ -113,13 +113,13 @@ class TestConfigSet:
         prefs = Preferences.load()
         assert prefs.quality_preset == 0
 
-    def test_set_quality_balanced(self, capsys):
-        rc = _run_config("set", "quality", "balanced")
+    def test_set_quality_by_alias(self, capsys):
+        rc = _run_config("set", "quality", "quality")
         assert rc == 0
         from dictate.presets import Preferences
 
         prefs = Preferences.load()
-        assert prefs.quality_preset == 3
+        assert prefs.quality_preset == 2
 
     def test_set_stt_by_alias(self, capsys):
         rc = _run_config("set", "stt", "whisper")
@@ -127,7 +127,7 @@ class TestConfigSet:
         from dictate.presets import Preferences
 
         prefs = Preferences.load()
-        assert prefs.stt_preset == 1
+        assert prefs.stt_preset == 2  # Whisper is at index 2 (after ANE at 1)
 
     def test_set_stt_by_index(self, capsys):
         rc = _run_config("set", "stt", "0")
@@ -365,18 +365,18 @@ class TestConfigPath:
 class TestConfigPersistence:
     def test_set_persists_to_file(self, _isolate_prefs):
         prefs_dir, prefs_file = _isolate_prefs
-        _run_config("set", "writing_style", "raw")
+        _run_config("set", "writing_style", "bullets")
         assert prefs_file.exists()
         data = json.loads(prefs_file.read_text())
-        assert data["writing_style"] == "raw"
+        assert data["writing_style"] == "bullets"
 
     def test_multiple_sets_accumulate(self, _isolate_prefs):
         prefs_dir, prefs_file = _isolate_prefs
-        _run_config("set", "writing_style", "formal")
+        _run_config("set", "writing_style", "professional")
         _run_config("set", "input_language", "de")
         _run_config("set", "llm_cleanup", "off")
         data = json.loads(prefs_file.read_text())
-        assert data["writing_style"] == "formal"
+        assert data["writing_style"] == "professional"
         assert data["input_language"] == "de"
         assert data["llm_cleanup"] is False
 
@@ -413,7 +413,7 @@ class TestConfigMainIntegration:
         assert "Dictate Config" in out
 
     def test_main_routes_config_set(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["dictate", "config", "set", "writing_style", "formal"])
+        monkeypatch.setattr("sys.argv", ["dictate", "config", "set", "writing_style", "professional"])
         from dictate.menubar_main import main
 
         rc = main()
@@ -484,7 +484,7 @@ class TestConfigEdgeCases:
 
     def test_set_all_quality_aliases(self, capsys):
         """Test every quality alias works."""
-        aliases = ["api", "speedy", "fast", "balanced", "quality"]
+        aliases = ["api", "fast", "quality"]
         for alias in aliases:
             rc = _run_config("set", "quality", alias)
             assert rc == 0, f"Failed to set quality={alias}"

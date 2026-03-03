@@ -33,6 +33,7 @@ from dictate.output import TextAggregator, create_output_handler
 from dictate.presets import (
     INPUT_LANGUAGES,
     OUTPUT_LANGUAGES,
+    PARAKEET_LANGUAGES,
     PTT_KEYS,
     QUALITY_PRESETS,
     SOUND_PRESETS,
@@ -402,6 +403,11 @@ class DictateMenuBarApp(rumps.App):
                     import parakeet_mlx  # noqa: F401
                 except ImportError:
                     continue
+            # Only show ANE if the Swift binary is available
+            if preset.engine == STTEngine.ANE:
+                from dictate.transcribe import ANETranscriber
+                if not ANETranscriber.is_available():
+                    continue
             desc = f" — {preset.description}" if preset.description else ""
             item = rumps.MenuItem(f"{preset.label}{desc}", callback=self._on_stt_select)
             item.state = i == self._prefs.stt_preset
@@ -717,8 +723,46 @@ class DictateMenuBarApp(rumps.App):
                 logger.info("Updated LLM endpoint to: %s", new_endpoint)
 
     def _on_input_lang_select(self, sender: rumps.MenuItem) -> None:
+        from dictate.config import STTEngine
+
         code = sender._lang_code  # type: ignore[attr-defined]
         self._prefs.input_language = code
+
+        # Auto-switch STT engine based on language support:
+        # ANE/Parakeet support 25 European languages; Whisper supports 99+.
+        # If user picks an unsupported language, switch to Whisper automatically.
+        # If user picks a supported language (or auto), switch back to ANE/Parakeet.
+        current_engine = self._prefs.stt_engine
+        if code not in PARAKEET_LANGUAGES:
+            # Need Whisper for this language
+            whisper_idx = next(
+                (i for i, p in enumerate(STT_PRESETS) if p.engine == STTEngine.WHISPER), None
+            )
+            if whisper_idx is not None and current_engine != STTEngine.WHISPER:
+                self._prefs.stt_preset = whisper_idx
+                logger.info("Auto-switched to Whisper for %s (not in Parakeet's 25 languages)", code)
+                self._post_ui("notify", f"Switched to Whisper for {code}")
+                self._prefs.save()
+                self._apply_prefs()
+                self._build_menu()
+                self._reload_pipeline()
+                return
+        elif current_engine == STTEngine.WHISPER:
+            # Language is supported by ANE/Parakeet — switch back if we auto-switched before
+            ane_idx = next(
+                (i for i, p in enumerate(STT_PRESETS) if p.engine == STTEngine.ANE), None
+            )
+            if ane_idx is not None:
+                from dictate.transcribe import ANETranscriber
+                if ANETranscriber.is_available():
+                    self._prefs.stt_preset = ane_idx
+                    logger.info("Auto-switched back to ANE for %s", code)
+                    self._prefs.save()
+                    self._apply_prefs()
+                    self._build_menu()
+                    self._reload_pipeline()
+                    return
+
         self._prefs.save()
         self._apply_prefs()
         self._build_menu()
@@ -1015,14 +1059,9 @@ class DictateMenuBarApp(rumps.App):
             return
         if self._audio.is_recording:
             return
-        try:
-            play_tone(
-                self._config.tones,
-                self._config.tones.start_hz,
-                self._config.audio.sample_rate,
-            )
-        except Exception:
-            logger.warning("Start tone failed, continuing without sound")
+        # Start the input stream FIRST — the tone is cosmetic, recording is essential.
+        # Opening OutputStream before InputStream can poison PortAudio state on some
+        # macOS audio configurations (PortAudio -9986), making the mic unusable.
         try:
             self._audio.start()
         except Exception:
@@ -1032,10 +1071,27 @@ class DictateMenuBarApp(rumps.App):
         self._is_recording = True
         self._rms_history = deque([0.0] * 5, maxlen=5)
         self._post_ui("status", "Recording (Space to lock)")
+        try:
+            play_tone(
+                self._config.tones,
+                self._config.tones.start_hz,
+                self._config.audio.sample_rate,
+            )
+        except Exception:
+            logger.warning("Start tone failed, continuing without sound")
 
     def _stop_recording(self) -> None:
         if self._audio is None or not self._audio.is_recording:
             return
+        # Kill any in-flight start tone before closing the InputStream.
+        # An active OutputStream outliving the InputStream can corrupt PortAudio.
+        from dictate.audio import _tone_lock
+        import sounddevice as sd
+        with _tone_lock:
+            try:
+                sd.stop()
+            except Exception:
+                pass
         duration = self._audio.stop()
         self._is_recording = False
         self._post_ui("icon", "idle")

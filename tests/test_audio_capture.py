@@ -194,27 +194,11 @@ class TestAudioCaptureStream:
         assert capture._stream is mock_stream
 
     @patch("dictate.audio.sd")
-    def test_start_stream_port_audio_invalid_device(self, mock_sd, capture):
-        """PortAudioError with 'invalid device' should raise RuntimeError."""
+    def test_start_stream_port_audio_error_no_device(self, mock_sd, capture):
+        """PortAudioError with device_id=None should re-raise directly."""
         import sounddevice as sd
 
         mock_sd.InputStream.side_effect = sd.PortAudioError("Invalid device id")
-        # Make the except clause find the real PortAudioError
-        mock_sd.PortAudioError = sd.PortAudioError
-
-        capture._recording = True  # Pre-set so _start_stream's except can clear it
-        with pytest.raises(RuntimeError, match="Audio device not available"):
-            capture._start_stream()
-
-        assert capture._recording is False
-        assert capture._stream is None
-
-    @patch("dictate.audio.sd")
-    def test_start_stream_port_audio_other_error(self, mock_sd, capture):
-        """Non-device PortAudioError should re-raise."""
-        import sounddevice as sd
-
-        mock_sd.InputStream.side_effect = sd.PortAudioError("buffer underrun")
         mock_sd.PortAudioError = sd.PortAudioError
 
         capture._recording = True
@@ -222,13 +206,51 @@ class TestAudioCaptureStream:
             capture._start_stream()
 
         assert capture._recording is False
+        assert capture._stream is None
+
+    @patch("dictate.audio.sd")
+    def test_start_stream_device_fallback_to_default(self, mock_sd, capture):
+        """When a specific device fails, should fall back to system default."""
+        import sounddevice as sd
+
+        mock_sd.PortAudioError = sd.PortAudioError
+        capture._audio_config.device_id = 5  # specific device
+
+        call_count = 0
+        def input_stream_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise sd.PortAudioError("Invalid device id")
+            mock_stream = MagicMock()
+            return mock_stream
+
+        mock_sd.InputStream.side_effect = input_stream_side_effect
+        capture._start_stream()
+        # Should have tried twice: once with device=5, once with device=None
+        assert mock_sd.InputStream.call_count == 2
+
+    @patch("dictate.audio.sd")
+    def test_start_stream_fallback_also_fails(self, mock_sd, capture):
+        """When both specific device and default fail, should raise."""
+        import sounddevice as sd
+
+        mock_sd.PortAudioError = sd.PortAudioError
+        mock_sd.InputStream.side_effect = sd.PortAudioError("no device")
+        capture._audio_config.device_id = 5
+
+        capture._recording = True
+        with pytest.raises(sd.PortAudioError):
+            capture._start_stream()
+
+        assert capture._recording is False
+        assert capture._stream is None
 
     @patch("dictate.audio.sd")
     def test_start_stream_unexpected_error(self, mock_sd, capture):
         """Non-PortAudioError should propagate but still clean up."""
         import sounddevice as sd
 
-        # Need PortAudioError to be a real exception class so the except clause works
         mock_sd.PortAudioError = sd.PortAudioError
         mock_sd.InputStream.side_effect = RuntimeError("unexpected")
 
