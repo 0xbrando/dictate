@@ -984,6 +984,7 @@ def main() -> int:
             Y = "\033[33m"    # yellow/dark orange
             O = "\033[93m"    # bright yellow/orange
             W = "\033[97m"    # bright white
+            G = "\033[32m"    # green
             D = "\033[2m"     # dim
             B = "\033[1m"     # bold
             R = "\033[0m"     # reset
@@ -1032,8 +1033,7 @@ def main() -> int:
                 _first_time_download()
 
             _tty = open("/dev/tty", "w")
-            _tty.write(f"""  {D}Dictate is now running in your menu bar.
-  You can close this terminal — it won't stop the app.{R}
+            _tty.write(f"""  {G}Dictate is running in your menu bar.{R}
 
   {W}HOW TO USE{R}
   {D}Hold{R} {O}{_ptt_label}{R}       {D}talk, release to transcribe{R}
@@ -1048,6 +1048,8 @@ def main() -> int:
   {D}All audio and text stays on your Mac. Nothing is sent anywhere.{R}
 
   {D}─────────────────────────────────────────{R}
+  {D}You can close this window — Dictate keeps running.{R}
+  {D}Enable {R}{W}Launch at Login{R}{D} from the menu bar to start automatically.{R}
 """)
             _tty.flush()
         except Exception:
