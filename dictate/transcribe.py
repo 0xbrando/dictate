@@ -434,9 +434,7 @@ class TextCleaner:
         from mlx_lm import load
 
         print(f"   LLM: {self._config.model}...", end=" ", flush=True)
-        self._model, self._tokenizer = load(
-            self._config.model, tokenizer_config={"trust_remote_code": True}
-        )
+        self._model, self._tokenizer = load(self._config.model)
         print("✓")
 
     def cleanup(self, text: str, output_language: str | None = None) -> str:

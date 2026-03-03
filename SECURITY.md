@@ -4,9 +4,9 @@
 
 | Version | Supported |
 |---------|-----------|
+| 2.5.x   | ✅        |
 | 2.4.x   | ✅        |
-| 2.3.x   | ✅        |
-| < 2.3   | ❌        |
+| < 2.4   | ❌        |
 
 ## Architecture
 
@@ -23,7 +23,7 @@ Dictate is designed with security as a first principle:
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do NOT open a public issue**
-2. Email **security@dictate.dev** (or open a private security advisory on GitHub)
+2. Open a [private security advisory](https://github.com/0xbrando/dictate/security/advisories/new) on GitHub
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

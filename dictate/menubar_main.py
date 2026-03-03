@@ -16,8 +16,8 @@ import time
 from pathlib import Path
 
 # Disable HuggingFace telemetry — all inference is local
-os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
-os.environ.setdefault("DO_NOT_TRACK", "1")
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["DO_NOT_TRACK"] = "1"
 
 # Suppress HuggingFace/tqdm progress bars globally.  Must be set before any
 # huggingface_hub or tqdm import (parakeet_mlx imports them internally).
