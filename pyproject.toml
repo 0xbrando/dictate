@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dictate-mlx"
 version = "2.4.1"
-description = "Push-to-Talk Voice Dictation menu bar app for macOS using Apple Silicon MLX"
+description = "65ms voice-to-text on Apple's Neural Engine. Push-to-talk dictation for macOS — 100% local, free, open source."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [
     {name = "brando"}
 ]
-keywords = ["dictation", "speech-to-text", "whisper", "mlx", "macos", "voice", "menu-bar", "apple-silicon", "local", "privacy", "open-source", "voice-to-text", "on-device", "wispr-flow-alternative"]
+keywords = ["dictation", "speech-to-text", "whisper", "mlx", "macos", "voice", "menu-bar", "apple-silicon", "local", "privacy", "open-source", "voice-to-text", "on-device", "neural-engine", "ane", "wispr-flow-alternative"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: MacOS X",

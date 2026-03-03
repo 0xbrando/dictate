@@ -935,8 +935,8 @@ def main() -> int:
         print()
         print("Config examples:")
         print("  dictate config                    Show current settings")
-        print("  dictate config set writing_style email")
-        print("  dictate config set quality speedy")
+        print("  dictate config set writing_style professional")
+        print("  dictate config set quality fast")
         print("  dictate config set ptt_key cmd_r")
         print("  dictate config reset              Reset to defaults")
         print()
@@ -1020,7 +1020,7 @@ def main() -> int:
 {Y}/ /_/ / / /__/ /_/ /_/ / /_/  __/
 {Y}\\__,_/_/\\___/\\__/\\__,_/\\__/\\___/{R}
 
-  {W}{B}speak. it types.{R}  {D}v{__version__} · 100% local{R}
+  {W}{B}speak. it types.{R}  {D}v{__version__} · 100% local · your words never leave your Mac{R}
 {_hw_line}
 """)
             _tty.flush()
@@ -1042,17 +1042,12 @@ def main() -> int:
   {D}Change the key, model, and more from the menu bar icon.{R}
 
   {W}TIPS{R}
-  {D}Parakeet supports 25 languages. Switch to Whisper for 99+ languages
-  under Advanced → STT Engine.{R}
-  {D}Writing styles (Clean, Formal, Bullets) change how your text
-  is polished — find them in the menu bar.{R}
-  {D}Add names, slang, or technical terms to your personal dictionary
-  so they're always spelled right — Advanced → Dictionary.{R}
+  {D}STT runs on Apple's Neural Engine — 65ms, zero GPU usage.{R}
+  {D}Whisper auto-activates for Japanese, Chinese, Korean.{R}
+  {D}Writing styles: Clean Up, Professional, Bullet Points.{R}
+  {D}All audio and text stays on your Mac. Nothing is sent anywhere.{R}
 
-  {W}COMMANDS{R}
-  {O}dictate{R}          {D}launch dictate{R}
-  {O}dictate update{R}   {D}update to the latest version{R}
-  {O}dictate -f{R}       {D}run in foreground (debug){R}
+  {D}─────────────────────────────────────────{R}
 """)
             _tty.flush()
         except Exception:
