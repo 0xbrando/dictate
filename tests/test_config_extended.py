@@ -109,45 +109,29 @@ class TestConfigFromEnvExtended:
         config = Config.from_env()
         assert config.llm.enabled is False
 
-    def test_llm_model_qwen_1_5b_env(self, monkeypatch):
-        """Test DICTATE_LLM_MODEL=qwen-1.5b sets correct model."""
+    def test_llm_model_qwen3_0_6b_env(self, monkeypatch):
+        """Test DICTATE_LLM_MODEL=qwen3-0.6b sets correct model."""
         from dictate.config import Config
 
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-1.5b")
+        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen3-0.6b")
         config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.QWEN_1_5B
+        assert config.llm.model_choice == LLMModel.QWEN3_0_6B
 
-    def test_llm_model_phi3_env(self, monkeypatch):
-        """Test DICTATE_LLM_MODEL=phi3 sets correct model."""
+    def test_llm_model_qwen3_1_7b_env(self, monkeypatch):
+        """Test DICTATE_LLM_MODEL=qwen3-1.7b sets correct model."""
         from dictate.config import Config
 
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "phi3")
+        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen3-1.7b")
         config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.PHI3
+        assert config.llm.model_choice == LLMModel.QWEN3_1_7B
 
-    def test_llm_model_qwen_env(self, monkeypatch):
-        """Test DICTATE_LLM_MODEL=qwen sets correct model."""
+    def test_llm_model_qwen_3b_env(self, monkeypatch):
+        """Test DICTATE_LLM_MODEL=qwen-3b sets correct model."""
         from dictate.config import Config
 
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen")
+        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-3b")
         config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.QWEN
-
-    def test_llm_model_qwen_7b_env(self, monkeypatch):
-        """Test DICTATE_LLM_MODEL=qwen-7b sets correct model."""
-        from dictate.config import Config
-
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-7b")
-        config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.QWEN_7B
-
-    def test_llm_model_qwen_14b_env(self, monkeypatch):
-        """Test DICTATE_LLM_MODEL=qwen-14b sets correct model."""
-        from dictate.config import Config
-
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-14b")
-        config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.QWEN_14B
+        assert config.llm.model_choice == LLMModel.QWEN_3B
 
     def test_llm_model_invalid_env(self, monkeypatch):
         """Test invalid DICTATE_LLM_MODEL keeps default."""
@@ -155,7 +139,7 @@ class TestConfigFromEnvExtended:
 
         monkeypatch.setenv("DICTATE_LLM_MODEL", "invalid-model")
         config = Config.from_env()
-        assert config.llm.model_choice == LLMModel.QWEN  # default
+        assert config.llm.model_choice == LLMModel.QWEN3_0_6B  # default
 
     def test_llm_backend_local_env(self, monkeypatch):
         """Test DICTATE_LLM_BACKEND=local sets local backend."""
@@ -217,7 +201,7 @@ class TestConfigFromEnvExtended:
         monkeypatch.setenv("DICTATE_OUTPUT_LANGUAGE", "es")
         monkeypatch.setenv("DICTATE_VERBOSE", "false")
         monkeypatch.setenv("DICTATE_LLM_CLEANUP", "false")
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "phi3")
+        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen3-1.7b")
         monkeypatch.setenv("DICTATE_LLM_BACKEND", "api")
         monkeypatch.setenv("DICTATE_LLM_API_URL", "http://api:8000/v1")
 
@@ -230,7 +214,7 @@ class TestConfigFromEnvExtended:
         assert config.llm.output_language == "es"
         assert config.verbose is False
         assert config.llm.enabled is False
-        assert config.llm.model_choice == LLMModel.PHI3
+        assert config.llm.model_choice == LLMModel.QWEN3_1_7B
         assert config.llm.backend == LLMBackend.API
         assert config.llm.api_url == "http://api:8000/v1"
 

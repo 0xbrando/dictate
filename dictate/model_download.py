@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from typing import Callable
 
@@ -15,12 +16,11 @@ logger = logging.getLogger(__name__)
 MODEL_SIZES: dict[str, float] = {
     # Whisper models
     "mlx-community/whisper-large-v3-turbo": 1.5,
-    # LLM models
-    "mlx-community/Qwen2.5-1.5B-Instruct-4bit": 1.0,
+    # LLM models (Qwen 3 — text-only, mlx-lm compatible)
+    "mlx-community/Qwen3-0.6B-4bit": 0.34,
+    "mlx-community/Qwen3-1.7B-4bit": 1.1,
+    # Legacy (kept for users who already cached it)
     "mlx-community/Qwen2.5-3B-Instruct-4bit": 1.8,
-    "mlx-community/Qwen2.5-7B-Instruct-4bit": 4.2,
-    "mlx-community/Qwen2.5-14B-Instruct-4bit": 8.8,
-    "mlx-community/Phi-3-mini-4k-instruct-4bit": 1.8,
     # Parakeet models
     "mlx-community/parakeet-tdt-0.6b-v3": 0.5,
 }
@@ -200,10 +200,13 @@ def download_model(
                 inner_self.close()
         
         try:
+            # Use HF token from env if available (for gated/private models)
+            token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
             snapshot_download(
                 repo_id=hf_repo,
                 cache_dir=cache_dir,
                 tqdm_class=ProgressTqdm,
+                token=token,
             )
             tracker.report_completion()
             logger.info("Download completed for %s", hf_repo)

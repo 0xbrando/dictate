@@ -306,7 +306,7 @@ class TestTextCleaner:
 
     @pytest.fixture
     def config(self):
-        return LLMConfig(enabled=True, backend=LLMBackend.LOCAL, model_choice=LLMModel.QWEN,
+        return LLMConfig(enabled=True, backend=LLMBackend.LOCAL, model_choice=LLMModel.QWEN3_0_6B,
                          max_tokens=300, temperature=0.0)
 
     def test_init(self, config):
@@ -586,7 +586,7 @@ class TestTranscriptionPipeline:
 
     @pytest.fixture
     def llm_config(self):
-        return LLMConfig(enabled=True, backend=LLMBackend.LOCAL, model_choice=LLMModel.QWEN)
+        return LLMConfig(enabled=True, backend=LLMBackend.LOCAL, model_choice=LLMModel.QWEN3_0_6B)
 
     @pytest.fixture
     def api_llm_config(self):

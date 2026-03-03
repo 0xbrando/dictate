@@ -86,10 +86,9 @@ class TestWhisperConfig:
 
 class TestLLMModel:
     def test_hf_repo_mapping(self):
-        assert "1.5B" in LLMModel.QWEN_1_5B.hf_repo
-        assert "3B" in LLMModel.QWEN.hf_repo
-        assert "7B" in LLMModel.QWEN_7B.hf_repo
-        assert "14B" in LLMModel.QWEN_14B.hf_repo
+        assert "0.6B" in LLMModel.QWEN3_0_6B.hf_repo
+        assert "1.7B" in LLMModel.QWEN3_1_7B.hf_repo
+        assert "3B" in LLMModel.QWEN_3B.hf_repo
 
     def test_all_models_have_repos(self):
         for model in LLMModel:
@@ -113,8 +112,8 @@ class TestLLMConfig:
         assert c.dictionary is None
 
     def test_model_property(self):
-        c = LLMConfig(model_choice=LLMModel.QWEN_7B)
-        assert "7B" in c.model
+        c = LLMConfig(model_choice=LLMModel.QWEN3_1_7B)
+        assert "1.7B" in c.model
 
     def test_system_prompt_clean(self):
         c = LLMConfig(writing_style="clean")
@@ -199,7 +198,7 @@ class TestConfigFromEnv:
         monkeypatch.setenv("DICTATE_INPUT_LANGUAGE", "ja")
         monkeypatch.setenv("DICTATE_OUTPUT_LANGUAGE", "en")
         monkeypatch.setenv("DICTATE_LLM_CLEANUP", "false")
-        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen-7b")
+        monkeypatch.setenv("DICTATE_LLM_MODEL", "qwen3-1.7b")
         monkeypatch.setenv("DICTATE_LLM_BACKEND", "api")
 
         c = Config.from_env()
@@ -207,7 +206,7 @@ class TestConfigFromEnv:
         assert c.whisper.language == "ja"
         assert c.llm.output_language == "en"
         assert c.llm.enabled is False
-        assert c.llm.model_choice == LLMModel.QWEN_7B
+        assert c.llm.model_choice == LLMModel.QWEN3_1_7B
         assert c.llm.backend == LLMBackend.API
 
     def test_auto_language_is_none(self, monkeypatch):
@@ -220,7 +219,7 @@ class TestConfigFromEnv:
     def test_invalid_model_keeps_default(self, monkeypatch):
         monkeypatch.setenv("DICTATE_LLM_MODEL", "nonexistent-model")
         c = Config.from_env()
-        assert c.llm.model_choice == LLMModel.QWEN  # default preserved
+        assert c.llm.model_choice == LLMModel.QWEN3_0_6B  # default preserved
 
 
 class TestAudioConfigValidation:

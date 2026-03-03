@@ -309,7 +309,9 @@ class TextCleaner:
         from mlx_lm import load
 
         print(f"   LLM: {self._config.model}...", end=" ", flush=True)
-        self._model, self._tokenizer = load(self._config.model)
+        self._model, self._tokenizer = load(
+            self._config.model, tokenizer_config={"trust_remote_code": True}
+        )
         print("✓")
 
     def cleanup(self, text: str, output_language: str | None = None) -> str:
@@ -533,9 +535,9 @@ class TranscriptionPipeline:
 
         # Pick the fastest cached local model
         for model in [
-            LLMModel.QWEN_1_5B,
-            LLMModel.QWEN,
-            LLMModel.QWEN_7B,
+            LLMModel.QWEN3_0_6B,
+            LLMModel.QWEN3_1_7B,
+            LLMModel.QWEN_3B,
         ]:
             if is_model_cached(model.hf_repo):
                 fast_config = LLMConfig(

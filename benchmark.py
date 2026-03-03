@@ -117,9 +117,9 @@ def benchmark_llm_cleanup() -> None:
     from dictate.transcribe import TextCleaner
 
     models = [
-        ("Qwen 0.5B", LLMModel.QWEN_0_5B),
-        ("Qwen 1.5B", LLMModel.QWEN_1_5B),
-        ("Qwen 3B", LLMModel.QWEN),
+        ("Qwen3 0.6B", LLMModel.QWEN3_0_6B),
+        ("Qwen3 1.7B", LLMModel.QWEN3_1_7B),
+        ("Qwen2.5 3B", LLMModel.QWEN_3B),
     ]
 
     for label, model_choice in models:

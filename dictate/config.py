@@ -32,22 +32,18 @@ class LLMBackend(str, Enum):
 
 
 class LLMModel(str, Enum):
-    QWEN_1_5B = "qwen-1.5b"
-    PHI3 = "phi3"
-    QWEN = "qwen"
-    QWEN_7B = "qwen-7b"
-    QWEN_14B = "qwen-14b"
+    QWEN3_0_6B = "qwen3-0.6b"
+    QWEN3_1_7B = "qwen3-1.7b"
+    QWEN_3B = "qwen-3b"
 
     @property
     def hf_repo(self) -> str:
         repos = {
-            LLMModel.QWEN_1_5B: "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
-            LLMModel.PHI3: "mlx-community/Phi-3-mini-4k-instruct-4bit",
-            LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
-            LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
-            LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
+            LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-4bit",
+            LLMModel.QWEN3_1_7B: "mlx-community/Qwen3-1.7B-4bit",
+            LLMModel.QWEN_3B: "mlx-community/Qwen2.5-3B-Instruct-4bit",
         }
-        return repos.get(self, repos[LLMModel.QWEN])
+        return repos.get(self, repos[LLMModel.QWEN3_0_6B])
 
 
 # STT Models
@@ -198,7 +194,7 @@ LANGUAGE_NAMES = {
 class LLMConfig:
     enabled: bool = True
     backend: LLMBackend = LLMBackend.LOCAL
-    model_choice: LLMModel = LLMModel.QWEN
+    model_choice: LLMModel = LLMModel.QWEN3_0_6B
     api_url: str = "http://localhost:8005/v1/chat/completions"
     endpoint: str = "localhost:11434"  # LLM endpoint for local API servers
     max_tokens: int = 300
@@ -224,14 +220,7 @@ class LLMConfig:
 
     @property
     def model(self) -> str:
-        models = {
-            LLMModel.QWEN_1_5B: "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
-            LLMModel.PHI3: "mlx-community/Phi-3-mini-4k-instruct-4bit",
-            LLMModel.QWEN: "mlx-community/Qwen2.5-3B-Instruct-4bit",
-            LLMModel.QWEN_7B: "mlx-community/Qwen2.5-7B-Instruct-4bit",
-            LLMModel.QWEN_14B: "mlx-community/Qwen2.5-14B-Instruct-4bit",
-        }
-        return models.get(self.model_choice, models[LLMModel.QWEN])
+        return self.model_choice.hf_repo
 
     def get_system_prompt(self, output_language: str | None = None) -> str:
         target_lang = output_language if output_language is not None else self.output_language
