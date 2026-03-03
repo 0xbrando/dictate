@@ -138,8 +138,7 @@ With ANE, speech recognition runs on a dedicated chip with its own memory — ze
 ## Menu Bar
 
 <p align="center">
-  <img src="assets/menubar.png" alt="Main menu" width="250">
-  <img src="assets/advanced.png" alt="Advanced settings" width="250">
+  <img src="assets/advanced.png" alt="Menu bar" width="450">
 </p>
 
 Everything accessible from the waveform icon:
