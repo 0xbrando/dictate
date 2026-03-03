@@ -67,7 +67,7 @@ dictate
 
 ## Features
 
-### 🎙️ Push-to-Talk
+### Push-to-Talk
 
 Hold a key, speak, release. Text appears wherever your cursor is.
 
@@ -79,13 +79,13 @@ Hold a key, speak, release. Text appears wherever your cursor is.
 
 The PTT key is configurable: Left Control, Right Control, Right Command, or either Option key.
 
-### 🧠 LLM Text Cleanup
+### LLM Text Cleanup
 
 **The thing that sets Dictate apart.** Most dictation tools give you raw transcription. Dictate pipes through a local LLM that fixes grammar, adds punctuation, and formats properly.
 
 Short phrases (≤15 words) skip cleanup for instant speed. Longer dictation gets the full treatment.
 
-### 🗣️ Three STT Engines
+### Three STT Engines
 
 All included. Switch anytime from the menu bar.
 
@@ -99,7 +99,7 @@ ANE is the default. It runs speech recognition on Apple's Neural Engine — a de
 
 When you select a language not supported by ANE/Parakeet (Japanese, Chinese, Korean), Dictate automatically switches to Whisper. Switch back to a supported language and it returns to ANE.
 
-### ✍️ Writing Styles
+### Writing Styles
 
 | Style | What it does |
 |-------|-------------|
@@ -109,11 +109,11 @@ When you select a language not supported by ANE/Parakeet (Japanese, Chinese, Kor
 
 Toggle LLM cleanup off from the menu bar for raw transcription output.
 
-### 🌐 Real-Time Translation
+### Real-Time Translation
 
 Speak in one language, get output in another. 12 languages supported: English, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Russian, Arabic, Hindi.
 
-### ⚡ Quality Presets
+### Quality Presets
 
 | Preset | Speed | Size | Best for |
 |--------|-------|------|----------|
