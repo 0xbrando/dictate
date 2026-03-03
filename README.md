@@ -24,19 +24,14 @@
 
 ## Why Dictate?
 
-| | Dictate | SuperWhisper | Wispr Flow | VoiceInk | macOS Dictation |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Price** | **Free** | $8.49/mo | $12/mo | $39.99 | Free |
-| **Open source** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **100% local** | ✅ | ✅ | ❌ (cloud) | ✅ | Partial |
-| **Neural Engine STT** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **LLM cleanup** | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Translation** | ✅ 12 langs | ❌ | ❌ | ❌ | ❌ |
-| **Writing styles** | ✅ 3 modes | ❌ | ✅ | ❌ | ❌ |
-| **Push-to-talk** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Personal dictionary** | ✅ | ❌ | ✅ | ❌ | ✅ |
+- **65ms voice-to-text** on Apple's Neural Engine — faster than a keystroke
+- **Zero GPU RAM** for STT — the Neural Engine has its own dedicated memory
+- **100% local** — audio and text never leave your Mac
+- **Free and open source** — no subscriptions, no API keys, no accounts
+- **LLM text cleanup** — local model fixes grammar and punctuation automatically
+- **12 languages** — real-time translation between any supported pair
 
-Your M-series Mac has more than enough compute to do this locally. Why pay for it?
+Your M-series Mac has a 16-core Neural Engine doing nothing. Dictate puts it to work.
 
 ## Install
 
