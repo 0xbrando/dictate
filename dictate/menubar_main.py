@@ -1033,7 +1033,7 @@ def main() -> int:
                 _first_time_download()
 
             _tty = open("/dev/tty", "w")
-            _tty.write(f"""  {G}Dictate is running in your menu bar.{R}
+            _tty.write(f"""  {O}Dictate is running in your menu bar.{R}
 
   {W}HOW TO USE{R}
   {D}Hold{R} {O}{_ptt_label}{R}       {D}talk, release to transcribe{R}
