@@ -29,7 +29,7 @@
 - **100% local** — audio and text never leave your Mac
 - **Free and open source** — no subscriptions, no API keys, no accounts
 - **LLM text cleanup** — local model fixes grammar and punctuation automatically
-- **12 languages** — real-time translation between any supported pair
+- **52+ languages** — real-time translation between any supported pair
 
 Your M-series Mac has a 16-core Neural Engine doing nothing. Dictate puts it to work.
 
@@ -41,6 +41,12 @@ dictate
 ```
 
 That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running.
+
+For Qwen3-ASR support (52-language STT engine):
+
+```bash
+pip install dictate-mlx[qwen3-asr]
+```
 
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 
@@ -85,19 +91,22 @@ The PTT key is configurable: Left Control, Right Control, Right Command, or eith
 
 Short phrases (≤15 words) skip cleanup for instant speed. Longer dictation gets the full treatment.
 
-### Three STT Engines
+### Four STT Engines
 
 All included. Switch anytime from the menu bar.
 
 | Engine | Speed | Languages | Notes |
 |--------|-------|-----------|-------|
 | **ANE (Neural Engine)** | **~65ms** | 25 | Default — runs on Apple Neural Engine, frees GPU for LLM |
-| **Parakeet TDT 0.6B** | ~50ms | 25 | Runs on GPU via MLX |
-| **Whisper Large V3 Turbo** | ~300ms | 99+ | Auto-selected for Japanese, Chinese, Korean |
+| **Qwen3-ASR 0.6B** | ~50ms | 52 | Fastest multilingual — includes CJK, Arabic, Hindi |
+| **Parakeet TDT 0.6B** | ~50ms | 25 | European languages, GPU via MLX |
+| **Whisper Large V3 Turbo** | ~300ms | 99+ | Maximum language coverage |
 
 ANE is the default. It runs speech recognition on Apple's Neural Engine — a dedicated chip that sits idle during most tasks. This frees the GPU entirely for LLM text cleanup, so STT and LLM run concurrently with zero contention. The result: **65-106ms transcription** on real speech.
 
-When you select a language not supported by ANE/Parakeet (Japanese, Chinese, Korean), Dictate automatically switches to Whisper. Switch back to a supported language and it returns to ANE.
+**Qwen3-ASR** is the new recommended GPU engine — 52 languages including Japanese, Chinese, and Korean at Parakeet-level speed. Requires `pip install mlx-audio`.
+
+Dictate auto-switches engines based on language: ANE/Parakeet for European languages, Qwen3-ASR for CJK and others, Whisper as the universal fallback.
 
 ### Writing Styles
 
@@ -117,8 +126,9 @@ Speak in one language, get output in another. 12 languages supported: English, S
 
 | Preset | Speed | Size | Best for |
 |--------|-------|------|----------|
-| **Qwen2.5 1.5B** | ~250ms | 950MB | Fast and reliable (default) |
-| **Qwen2.5 3B** | ~400ms | 1.8GB | Best accuracy |
+| **Qwen2.5 1.5B** | ~250ms | 950MB | Fast and lightweight |
+| **Qwen3.5 2B** | ~280ms | 1.3GB | Best balance (default) — newer, smarter |
+| **Qwen2.5 3B** | ~400ms | 1.8GB | Max accuracy |
 | **API Server** | varies | 0 | Use your own LLM server (LM Studio, Ollama, etc.) |
 
 Short phrases (15 words or less) skip LLM cleanup entirely for instant output. The app picks the best default model for your chip.
@@ -130,7 +140,7 @@ Full latency from voice → text on screen:
 | Mode | GPU RAM | Latency |
 |------|---------|---------|
 | LLM off (raw transcription) | **0** | **~65ms** |
-| LLM on (Qwen2.5 1.5B) | ~950MB | ~315ms |
+| LLM on (Qwen3.5 2B) | ~1.3GB | ~345ms |
 | LLM on (Qwen2.5 3B) | ~1.8GB | ~465ms |
 
 With ANE, speech recognition runs on a dedicated chip with its own memory — zero GPU usage. Turn off LLM cleanup and the entire app uses no GPU RAM at all.
@@ -140,10 +150,10 @@ With ANE, speech recognition runs on a dedicated chip with its own memory — ze
 Everything accessible from the waveform icon:
 
 - **Writing Style** — Clean Up, Professional, Bullet Points
-- **Quality** — Qwen2.5 1.5B or 3B (or API server)
+- **Quality** — Qwen2.5 1.5B, Qwen3.5 2B, Qwen2.5 3B, or API server
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
-- **STT Engine** — ANE (default), Parakeet, or Whisper
+- **STT Engine** — ANE (default), Qwen3-ASR, Parakeet, or Whisper
 - **PTT Key** — choose your push-to-talk modifier
 - **Languages** — input and output language
 - **Sounds** — 6 notification tones or silent
@@ -209,11 +219,11 @@ The **Smart** preset auto-routes by length: short phrases → fast local model (
 |----------|-------------|---------|
 | `DICTATE_AUDIO_DEVICE` | Microphone device index | System default |
 | `DICTATE_OUTPUT_MODE` | `type` or `clipboard` | `type` |
-| `DICTATE_STT_ENGINE` | `ane`, `parakeet`, or `whisper` | `ane` |
+| `DICTATE_STT_ENGINE` | `ane`, `qwen3-asr`, `parakeet`, or `whisper` | `ane` |
 | `DICTATE_INPUT_LANGUAGE` | `auto`, `en`, `ja`, `ko`, etc. | `auto` |
 | `DICTATE_OUTPUT_LANGUAGE` | Translation target (`auto` = same) | `auto` |
 | `DICTATE_LLM_CLEANUP` | Enable LLM text cleanup | `true` |
-| `DICTATE_LLM_MODEL` | `qwen25-1.5b`, `qwen-3b` | `qwen25-1.5b` |
+| `DICTATE_LLM_MODEL` | `qwen2.5-1.5b`, `qwen3.5-2b`, `qwen-3b` | `qwen3.5-2b` |
 | `DICTATE_LLM_BACKEND` | `local` or `api` | `local` |
 | `DICTATE_LLM_API_URL` | OpenAI-compatible endpoint | `http://localhost:8005/v1/chat/completions` |
 | `DICTATE_ALLOW_REMOTE_API` | Allow non-localhost API URLs | unset |
@@ -248,8 +258,8 @@ dictate -V           # Show version
 | Key | Values |
 |-----|--------|
 | `writing_style` | clean, professional, bullets |
-| `quality` | api, fast, quality |
-| `stt` | ane, parakeet, whisper |
+| `quality` | api, fast, balanced, quality |
+| `stt` | ane, qwen3-asr, parakeet, whisper |
 | `input_language` | auto, en, ja, de, fr, es, ... |
 | `output_language` | auto, en, ja, de, fr, es, ... |
 | `ptt_key` | ctrl_l, ctrl_r, cmd_r, alt_l, alt_r |
@@ -285,10 +295,14 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 ## Security
 
 - All processing is local. Audio and text never leave your machine.
+- Temporary audio files stored in a private directory with owner-only permissions — not world-readable /tmp.
 - The ANE engine's `dictate-stt` binary is open source Swift code you build yourself from `swift-stt/`. CoreML models download from [Hugging Face](https://huggingface.co/FluidInference) on first run, then everything is cached locally.
+- Models restricted to the `mlx-community/` HuggingFace namespace only.
 - LLM endpoints restricted to localhost by default (`DICTATE_ALLOW_REMOTE_API=1` to override).
-- Preferences stored with `0o600` permissions (owner-only).
-- No API keys, tokens, or accounts required.
+- Preferences and stats stored with `0o600` permissions (owner-only read/write).
+- Log rotation (5MB, 3 backups) prevents disk exhaustion.
+- HuggingFace telemetry disabled at startup (`DO_NOT_TRACK=1`).
+- No API keys, tokens, or accounts required. No unsafe code patterns.
 
 ## Contributing
 
