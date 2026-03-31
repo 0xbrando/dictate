@@ -73,7 +73,7 @@ def _config_command(args: list[str]) -> int:
             "description": "Quality preset (LLM model size)",
             "values": list(range(len(QUALITY_PRESETS))),
             "aliases": {
-                "api": 0, "fast": 1, "quality": 2,
+                "api": 0, "fast": 1, "balanced": 2, "quality": 3,
             },
             "type": "int_or_alias",
         },
@@ -894,11 +894,22 @@ def _daemonize() -> None:
 
 
 def setup_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
+    from logging.handlers import RotatingFileHandler
+
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(
+        LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3,  # 5 MB, keep 3 backups
     )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    ))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
+    # Also log to stderr when in foreground
+    if "--foreground" in sys.argv or "-f" in sys.argv:
+        root.addHandler(logging.StreamHandler())
     for name in ("urllib3", "httpx", "mlx", "transformers", "tokenizers", "sounddevice"):
         logging.getLogger(name).setLevel(logging.ERROR)
 

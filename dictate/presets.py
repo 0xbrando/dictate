@@ -37,12 +37,12 @@ def detect_chip() -> str:
 def recommended_quality_preset() -> int:
     """Return the best quality preset index for this hardware.
 
-    Presets: [0]=API/Endpoint, [1]=0.6B, [2]=1.7B, [3]=3B
+    Presets: [0]=API, [1]=Qwen2.5-1.5B, [2]=Qwen3.5-2B, [3]=Qwen2.5-3B
     """
     chip = detect_chip().lower()
     if "ultra" in chip or "max" in chip:
-        return 2  # Fast - 3B (plenty fast on Ultra/Max)
-    return 1  # Speedy - 1.5B (good default for all chips)
+        return 3  # Max quality - 3B (plenty fast on Ultra/Max)
+    return 2  # Balanced - Qwen3.5-2B (good default for all chips)
 
 
 PREFS_DIR = Path.home() / "Library" / "Application Support" / "Dictate"
@@ -55,6 +55,13 @@ PARAKEET_LANGUAGES = frozenset({
     "auto", "en", "bg", "hr", "cs", "da", "nl", "et", "fi", "fr", "de", "el",
     "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv",
     "ru", "uk",
+})
+
+# Languages supported by Qwen3-ASR (52 languages including CJK)
+# Source: https://huggingface.co/Qwen/Qwen3-ASR-0.6B
+QWEN3_ASR_LANGUAGES = PARAKEET_LANGUAGES | frozenset({
+    "ja", "zh", "ko", "ar", "hi", "th", "vi", "id", "ms", "tl",
+    "tr", "fa", "he", "bn", "ta", "te", "ur", "sw", "am",
 })
 
 INPUT_LANGUAGES = [
@@ -111,9 +118,14 @@ QUALITY_PRESETS: list[QualityPreset] = [
         description="Fast and reliable",
     ),
     QualityPreset(
+        label="Qwen3.5 2B (~280ms, 1.3GB)",
+        llm_model=LLMModel.QWEN35_2B,
+        description="Best balance — newer, smarter",
+    ),
+    QualityPreset(
         label="Qwen2.5 3B (~400ms, 1.8GB)",
         llm_model=LLMModel.QWEN_3B,
-        description="Best quality",
+        description="Max quality",
     ),
 ]
 
@@ -170,6 +182,12 @@ STT_PRESETS: list[STTPreset] = [
         description="ANE-accelerated, frees GPU",
     ),
     STTPreset(
+        label="Qwen3-ASR",
+        engine=STTEngine.QWEN3_ASR,
+        model="mlx-community/Qwen3-ASR-0.6B-8bit",
+        description="52 languages, fast",
+    ),
+    STTPreset(
         label="Parakeet",
         engine=STTEngine.PARAKEET,
         model="mlx-community/parakeet-tdt-0.6b-v3",
@@ -215,7 +233,7 @@ class Preferences:
         data = asdict(self)
         # Remove cached discovery
         data.pop("_discovered_model", None)
-        data["_prefs_version"] = 7  # v7: ANE first in STT presets
+        data["_prefs_version"] = 8  # v8: Qwen3-ASR STT, Qwen3.5-2B LLM
         try:
             PREFS_FILE.write_text(json.dumps(data, indent=2))
             os.chmod(PREFS_FILE, 0o600)
@@ -269,13 +287,19 @@ class Preferences:
                 raw_preset = 1  # Qwen3 0.6B/1.7B → Qwen2.5 1.5B
             elif version <= 5 and raw_preset == 3:
                 raw_preset = 2  # Qwen2.5 3B stays at index 2
+            # v7→v8: inserted Qwen3.5-2B at index 2, Qwen2.5-3B moved 2→3
+            # v7: [0]=API, [1]=Qwen2.5-1.5B, [2]=Qwen2.5-3B
+            # v8: [0]=API, [1]=Qwen2.5-1.5B, [2]=Qwen3.5-2B, [3]=Qwen2.5-3B
+            if version <= 7 and raw_preset == 2:
+                raw_preset = 3  # Qwen2.5-3B 2→3
             # Clamp to valid range
-            raw_preset = min(raw_preset, 2)
+            raw_preset = min(raw_preset, len(QUALITY_PRESETS) - 1)
 
             # Migrate STT preset:
             # v4 had [0]=Parakeet, [1]=Whisper
             # v5-v6 had [0]=Parakeet, [1]=ANE, [2]=Whisper
             # v7 has [0]=ANE, [1]=Parakeet, [2]=Whisper
+            # v8 has [0]=ANE, [1]=Qwen3-ASR, [2]=Parakeet, [3]=Whisper
             raw_stt = data.get("stt_preset", 0)
             if version <= 4 and raw_stt >= 1:
                 raw_stt += 1  # Whisper 1→2
@@ -285,6 +309,9 @@ class Preferences:
                     raw_stt = 1  # Parakeet 0→1
                 elif raw_stt == 1:
                     raw_stt = 0  # ANE 1→0
+            # v7→v8: inserted Qwen3-ASR at index 1, Parakeet 1→2, Whisper 2→3
+            if version <= 7 and raw_stt >= 1:
+                raw_stt += 1  # shift Parakeet and Whisper down
 
             prefs = cls(
                 device_id=data.get("device_id"),

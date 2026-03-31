@@ -31,10 +31,20 @@ API_TIMEOUT_SECONDS = 15
 LOCAL_LLM_TIMEOUT_SECONDS = 10
 
 
+def _private_tmp_dir() -> str:
+    """Return a private temp directory for audio files (owner-only access)."""
+    from pathlib import Path
+
+    d = Path.home() / "Library" / "Application Support" / "Dictate" / "tmp"
+    d.mkdir(parents=True, exist_ok=True)
+    os.chmod(d, 0o700)
+    return str(d)
+
+
 @contextlib.contextmanager
 def _temp_wav_context(audio: "NDArray[np.int16]", sample_rate: int):
     """Context manager for creating and cleaning up temporary WAV files."""
-    fd, path = tempfile.mkstemp(suffix=".wav", prefix="dictate_")
+    fd, path = tempfile.mkstemp(suffix=".wav", prefix="dictate_", dir=_private_tmp_dir())
     os.close(fd)
     try:
         try:
@@ -192,6 +202,72 @@ class ParakeetTranscriber:
 
         with _temp_wav_context(audio, sample_rate) as path:
             result = self._model.transcribe(path)
+            text = getattr(result, "text", "")
+            text = str(text).strip() if isinstance(text, str) else ""
+            return _dedup_transcription(text)
+
+
+class Qwen3ASRTranscriber:
+    """Speech-to-text using Qwen3-ASR via mlx-audio — 52 languages, faster than Whisper."""
+
+    def __init__(self, config: "WhisperConfig") -> None:
+        self._config = config
+        self._model = None
+
+    @staticmethod
+    def is_available() -> bool:
+        """Check if mlx-audio is installed with STT support."""
+        try:
+            from mlx_audio.stt.utils import load  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    def load_model(self) -> None:
+        if self._model is not None:
+            return
+
+        from dictate.mlx_check import is_mlx_available
+        if not is_mlx_available():
+            raise RuntimeError(
+                "MLX cannot initialize Metal GPU on this system. "
+                "Qwen3-ASR requires MLX. Use API mode or check macOS compatibility."
+            )
+
+        try:
+            from mlx_audio.stt.utils import load
+        except ImportError:
+            raise ImportError(
+                "mlx-audio is required for the Qwen3-ASR engine. "
+                "Install it with: pip install mlx-audio"
+            )
+
+        model_name = self._config.model
+        print(f"   Qwen3-ASR: {model_name}...", end=" ", flush=True)
+        self._model = load(model_name)
+        print("✓")
+
+    def transcribe(
+        self,
+        audio: "NDArray[np.int16]",
+        sample_rate: int,
+        language: str | None = None,
+    ) -> str:
+        if self._model is None:
+            self.load_model()
+
+        with _temp_wav_context(audio, sample_rate) as path:
+            kwargs: dict = {}
+            if language:
+                # Map ISO codes to full names for Qwen3-ASR
+                lang_map = {
+                    "en": "English", "zh": "Chinese", "ja": "Japanese",
+                    "ko": "Korean", "es": "Spanish", "fr": "French",
+                    "de": "German", "it": "Italian", "pt": "Portuguese",
+                    "nl": "Dutch", "ru": "Russian", "pl": "Polish",
+                }
+                kwargs["language"] = lang_map.get(language, language)
+            result = self._model.generate(path, **kwargs)
             text = getattr(result, "text", "")
             text = str(text).strip() if isinstance(text, str) else ""
             return _dedup_transcription(text)
@@ -448,9 +524,10 @@ class TextCleaner:
         from mlx_lm.sample_utils import make_sampler
 
         system_prompt = self._config.get_system_prompt(output_language)
-        # Qwen3 reasoning models burn max_tokens on <think> blocks before
+        # Qwen3/Qwen3.5 reasoning models burn max_tokens on <think> blocks before
         # producing output. /no_think disables this for simple cleanup tasks.
-        user_content = f"/no_think\n{text}" if "qwen3" in self._config.model.lower() else text
+        model_lower = self._config.model.lower()
+        user_content = f"/no_think\n{text}" if ("qwen3" in model_lower or "qwen3.5" in model_lower) else text
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
@@ -634,11 +711,17 @@ class TranscriptionPipeline:
     ) -> None:
         from dictate.config import LLMBackend, STTEngine
 
-        if whisper_config.engine == STTEngine.ANE:
-            if ANETranscriber.is_available():
-                self._whisper: WhisperTranscriber | ParakeetTranscriber | ANETranscriber = (
-                    ANETranscriber(whisper_config)
+        if whisper_config.engine == STTEngine.QWEN3_ASR:
+            if Qwen3ASRTranscriber.is_available():
+                self._whisper: WhisperTranscriber | ParakeetTranscriber | ANETranscriber | Qwen3ASRTranscriber = (
+                    Qwen3ASRTranscriber(whisper_config)
                 )
+            else:
+                logger.warning("mlx-audio not installed, falling back to Parakeet MLX")
+                self._whisper = ParakeetTranscriber(whisper_config)
+        elif whisper_config.engine == STTEngine.ANE:
+            if ANETranscriber.is_available():
+                self._whisper = ANETranscriber(whisper_config)
             else:
                 logger.warning("ANE binary not found, falling back to Parakeet MLX")
                 self._whisper = ParakeetTranscriber(whisper_config)
@@ -668,6 +751,7 @@ class TranscriptionPipeline:
         # Pick the fastest cached local model (prefer instruction models over reasoning)
         for model in [
             LLMModel.QWEN25_1_5B,
+            LLMModel.QWEN35_2B,
             LLMModel.QWEN_3B,
             LLMModel.QWEN3_0_6B,
             LLMModel.QWEN3_1_7B,
@@ -716,6 +800,7 @@ class TranscriptionPipeline:
         engine_name = (
             "ANE" if is_ane
             else "Whisper" if isinstance(self._whisper, WhisperTranscriber)
+            else "Qwen3-ASR" if isinstance(self._whisper, Qwen3ASRTranscriber)
             else "Parakeet"
         )
 

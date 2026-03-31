@@ -13,6 +13,7 @@ import os
 import struct
 import tempfile
 import zlib
+from pathlib import Path
 
 # 144 DPI → 5669 pixels-per-meter (PNG pHYs chunk)
 _PPM_144DPI = 5669
@@ -123,6 +124,14 @@ _reactive_paths: list[str] = []
 _reactive_idx = 0
 
 
+def _icon_tmp_dir() -> str:
+    """Return a private temp directory for icon files (owner-only access)."""
+    d = Path.home() / "Library" / "Application Support" / "Dictate" / "tmp"
+    d.mkdir(parents=True, exist_ok=True)
+    os.chmod(d, 0o700)
+    return str(d)
+
+
 def generate_reactive_icon(heights: list[int]) -> str:
     """Generate a waveform icon from actual bar heights. Alternates temp files."""
     global _reactive_idx
@@ -130,7 +139,8 @@ def generate_reactive_icon(heights: list[int]) -> str:
     if len(_reactive_paths) < 2:
         for _ in range(2):
             tmp = tempfile.NamedTemporaryFile(
-                prefix="dictate_reactive_", suffix=".png", delete=False
+                prefix="dictate_reactive_", suffix=".png", delete=False,
+                dir=_icon_tmp_dir(),
             )
             tmp.close()
             _reactive_paths.append(tmp.name)
@@ -162,6 +172,7 @@ def get_icon_path(name: str) -> str:
         prefix=f"dictate_{name}_",
         suffix=".png",
         delete=False,
+        dir=_icon_tmp_dir(),
     )
     tmp.write(png_data)
     tmp.close()

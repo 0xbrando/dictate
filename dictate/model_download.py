@@ -19,11 +19,14 @@ MODEL_SIZES: dict[str, float] = {
     # LLM models — instruction models (preferred for text cleanup)
     "mlx-community/Qwen2.5-1.5B-Instruct-4bit": 0.95,
     "mlx-community/Qwen2.5-3B-Instruct-4bit": 1.8,
+    "mlx-community/Qwen3.5-2B-4bit": 1.3,
     # LLM models — reasoning models (Qwen3, have <think> overhead)
     "mlx-community/Qwen3-0.6B-4bit": 0.34,
     "mlx-community/Qwen3-1.7B-4bit": 1.1,
     # Parakeet models
     "mlx-community/parakeet-tdt-0.6b-v3": 0.5,
+    # Qwen3-ASR STT
+    "mlx-community/Qwen3-ASR-0.6B-8bit": 0.6,
 }
 
 # Default timeout for model downloads (in seconds)

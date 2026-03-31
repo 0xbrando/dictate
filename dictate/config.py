@@ -20,6 +20,7 @@ class STTEngine(str, Enum):
     WHISPER = "whisper"
     PARAKEET = "parakeet"
     ANE = "ane"
+    QWEN3_ASR = "qwen3-asr"
 
 
 class OutputMode(str, Enum):
@@ -37,6 +38,7 @@ class LLMModel(str, Enum):
     QWEN3_0_6B = "qwen3-0.6b"
     QWEN3_1_7B = "qwen3-1.7b"
     QWEN_3B = "qwen-3b"
+    QWEN35_2B = "qwen3.5-2b"
 
     @property
     def hf_repo(self) -> str:
@@ -45,6 +47,7 @@ class LLMModel(str, Enum):
             LLMModel.QWEN3_0_6B: "mlx-community/Qwen3-0.6B-4bit",
             LLMModel.QWEN3_1_7B: "mlx-community/Qwen3-1.7B-4bit",
             LLMModel.QWEN_3B: "mlx-community/Qwen2.5-3B-Instruct-4bit",
+            LLMModel.QWEN35_2B: "mlx-community/Qwen3.5-2B-4bit",
         }
         return repos.get(self, repos[LLMModel.QWEN25_1_5B])
 
@@ -53,6 +56,7 @@ class LLMModel(str, Enum):
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 PARAKEET_V2_MODEL = "mlx-community/parakeet-tdt-0.6b-v2"  # English only
 PARAKEET_V3_MODEL = "mlx-community/parakeet-tdt-0.6b-v3"  # 25 European languages, same speed
+QWEN3_ASR_MODEL = "mlx-community/Qwen3-ASR-0.6B-8bit"  # 52 languages, faster than Whisper
 
 
 def is_model_cached(hf_repo: str) -> bool:

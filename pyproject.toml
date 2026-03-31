@@ -42,6 +42,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+qwen3-asr = [
+    "mlx-audio>=0.4.0",
+]
 dev = [
     "pytest>=7.0",
     "mypy>=1.0",

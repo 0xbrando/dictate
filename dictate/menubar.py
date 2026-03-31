@@ -34,6 +34,7 @@ from dictate.presets import (
     INPUT_LANGUAGES,
     OUTPUT_LANGUAGES,
     PARAKEET_LANGUAGES,
+    QWEN3_ASR_LANGUAGES,
     PTT_KEYS,
     QUALITY_PRESETS,
     SOUND_PRESETS,
@@ -403,6 +404,14 @@ class DictateMenuBarApp(rumps.App):
                     import parakeet_mlx  # noqa: F401
                 except ImportError:
                     continue
+            # Only show Qwen3-ASR if mlx-audio is installed
+            if preset.engine == STTEngine.QWEN3_ASR:
+                from dictate.mlx_check import is_mlx_available
+                if not is_mlx_available():
+                    continue
+                from dictate.transcribe import Qwen3ASRTranscriber
+                if not Qwen3ASRTranscriber.is_available():
+                    continue
             # Only show ANE if the Swift binary is available
             if preset.engine == STTEngine.ANE:
                 from dictate.transcribe import ANETranscriber
@@ -729,25 +738,52 @@ class DictateMenuBarApp(rumps.App):
         self._prefs.input_language = code
 
         # Auto-switch STT engine based on language support:
-        # ANE/Parakeet support 25 European languages; Whisper supports 99+.
-        # If user picks an unsupported language, switch to Whisper automatically.
-        # If user picks a supported language (or auto), switch back to ANE/Parakeet.
+        # ANE/Parakeet: 25 European languages
+        # Qwen3-ASR: 52 languages (incl. CJK)
+        # Whisper: 99+ languages
+        # If current engine can't handle the language, switch to one that can.
+        # When switching back, prefer the user's original engine.
         current_engine = self._prefs.stt_engine
-        if code not in PARAKEET_LANGUAGES:
-            # Need Whisper for this language
+        if code not in PARAKEET_LANGUAGES and code not in QWEN3_ASR_LANGUAGES:
+            # Only Whisper supports this language
             whisper_idx = next(
                 (i for i, p in enumerate(STT_PRESETS) if p.engine == STTEngine.WHISPER), None
             )
             if whisper_idx is not None and current_engine != STTEngine.WHISPER:
                 self._prefs.stt_preset = whisper_idx
-                logger.info("Auto-switched to Whisper for %s (not in Parakeet's 25 languages)", code)
+                logger.info("Auto-switched to Whisper for %s", code)
                 self._post_ui("notify", f"Switched to Whisper for {code}")
                 self._prefs.save()
                 self._apply_prefs()
                 self._build_menu()
                 self._reload_pipeline()
                 return
-        elif current_engine == STTEngine.WHISPER:
+        elif code not in PARAKEET_LANGUAGES and code in QWEN3_ASR_LANGUAGES:
+            # Qwen3-ASR supports this but ANE/Parakeet don't
+            if current_engine in (STTEngine.ANE, STTEngine.PARAKEET):
+                # Try Qwen3-ASR first, fall back to Whisper
+                from dictate.transcribe import Qwen3ASRTranscriber
+                qwen_idx = next(
+                    (i for i, p in enumerate(STT_PRESETS) if p.engine == STTEngine.QWEN3_ASR), None
+                )
+                if qwen_idx is not None and Qwen3ASRTranscriber.is_available():
+                    self._prefs.stt_preset = qwen_idx
+                    logger.info("Auto-switched to Qwen3-ASR for %s", code)
+                    self._post_ui("notify", f"Switched to Qwen3-ASR for {code}")
+                else:
+                    whisper_idx = next(
+                        (i for i, p in enumerate(STT_PRESETS) if p.engine == STTEngine.WHISPER), None
+                    )
+                    if whisper_idx is not None:
+                        self._prefs.stt_preset = whisper_idx
+                        logger.info("Auto-switched to Whisper for %s", code)
+                        self._post_ui("notify", f"Switched to Whisper for {code}")
+                self._prefs.save()
+                self._apply_prefs()
+                self._build_menu()
+                self._reload_pipeline()
+                return
+        elif current_engine == STTEngine.WHISPER and code in PARAKEET_LANGUAGES:
             # Language is supported by ANE/Parakeet — switch back if we auto-switched before
             ane_idx = next(
                 (i for i, p in enumerate(STT_PRESETS) if p.engine == STTEngine.ANE), None
