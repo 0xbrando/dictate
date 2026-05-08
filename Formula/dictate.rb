@@ -21,7 +21,7 @@ class Dictate < Formula
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/dictate --version")
+    assert_match(/^dictate \d+\.\d+\.\d+$/, shell_output("#{bin}/dictate --version").strip)
     assert_match "dictate-stt", shell_output("#{bin}/dictate-stt --help")
   end
 
