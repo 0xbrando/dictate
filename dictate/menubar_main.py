@@ -928,7 +928,7 @@ def main() -> int:
     # Handle --help flag
     if "--help" in sys.argv or "-h" in sys.argv:
         from dictate import __version__
-        print(f"dictate v{__version__} — push-to-talk voice dictation for macOS")
+        print(f"dictate v{__version__} — local push-to-talk dictation for macOS")
         print()
         print("Usage: dictate [COMMAND] [OPTIONS]")
         print()
@@ -1030,13 +1030,13 @@ def main() -> int:
             _hw_line += f"{R}\n"
 
             _tty.write(f"""
-{O}       ___      __        __
-{O}  ____/ (_)____/ /_____ _/ /____
-{Y} / __  / / ___/ __/ __ `/ __/ _ \\
-{Y}/ /_/ / / /__/ /_/ /_/ / /_/  __/
-{Y}\\__,_/_/\\___/\\__/\\__,_/\\__/\\___/{R}
+{O}      __   _      __        __
+{O} ____/ /  (_)____/ /_____ _/ /____
+{Y}/ __  /  / / ___/ __/ __ `/ __/ _ \\
+{Y}/ /_/ /  / / /__/ /_/ /_/ / /_/  __/
+{Y}\\__,_/  /_/\\___/\\__/\\__,_/\\__/\\___/{R}
 
-  {W}{B}speak. it types.{R}  {D}v{__version__} · 100% local · your words never leave your Mac{R}
+  {W}{B}local voice, instant text.{R}  {D}v{__version__} · ANE-first · no cloud account{R}
 {_hw_line}
 """)
             _tty.flush()
@@ -1054,13 +1054,13 @@ def main() -> int:
   {D}Hold{R} {O}{_ptt_label}{R}       {D}talk, release to transcribe{R}
   {D}Hold{R} {O}{_ptt_label} + Space{R}  {D}lock recording (hands-free){R}
   {D}Tap{R}  {O}{_ptt_label}{R}       {D}to stop locked recording{R}
-  {D}Change the key, model, and more from the menu bar icon.{R}
+  {D}Change the key, engine, model, and more from the menu bar icon.{R}
 
   {W}TIPS{R}
-  {D}STT runs on Apple's Neural Engine — 65ms, zero GPU usage.{R}
-  {D}Whisper auto-activates for Japanese, Chinese, Korean.{R}
-  {D}Writing styles: Clean Up, Professional, Bullet Points.{R}
-  {D}All audio and text stays on your Mac. Nothing is sent anywhere.{R}
+  {D}FluidAudio/Parakeet runs on Apple's Neural Engine — zero GPU usage.{R}
+  {D}The Swift helper stays warm, so repeated dictations avoid model reloads.{R}
+  {D}Qwen3-ASR covers broader multilingual local speech when installed.{R}
+  {D}Remote endpoints are blocked unless you explicitly opt in.{R}
 
   {D}─────────────────────────────────────────{R}
   {D}You can close this window — Dictate keeps running.{R}

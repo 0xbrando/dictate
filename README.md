@@ -184,19 +184,21 @@ swift build -c release
 <details>
 <summary><b>How it works</b></summary>
 
-When you select ANE in the menu bar, Dictate calls the `dictate-stt` binary as a subprocess:
+When you select ANE in the menu bar, Dictate starts the `dictate-stt` helper once and keeps it warm:
 
 1. Dictate records audio and saves it as a temporary WAV file
-2. Calls `dictate-stt transcribe /tmp/audio.wav`
-3. The Swift binary runs the audio through CoreML on the Neural Engine
-4. Returns JSON to stdout: `{"text": "Hello world", "duration_ms": 68}`
-5. Dictate parses the result and pipes it through LLM cleanup as usual
+2. Starts `dictate-stt serve` and loads FluidAudio/CoreML models once
+3. Sends each WAV path to the helper over JSON lines
+4. The Swift binary runs the audio through CoreML on the Neural Engine
+5. Returns JSON to stdout: `{"text": "Hello world", "duration_ms": 68}`
+6. Dictate parses the result and pipes it through LLM cleanup as usual
 
 The binary is a standalone executable with no Python dependency. You can also use it directly:
 
 ```bash
 dictate-stt check                    # Verify ANE is available
 dictate-stt transcribe recording.wav # Transcribe a WAV file
+dictate-stt serve                    # Keep models warm for repeated requests
 ```
 </details>
 

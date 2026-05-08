@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dictate-mlx"
-version = "2.5.0"
+version = "2.5.1"
 description = "65ms voice-to-text on Apple's Neural Engine. Push-to-talk dictation for macOS — 100% local, free, open source."
 readme = "README.md"
 license = {text = "MIT"}

@@ -7,6 +7,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-05-08
+
+### Added
+- Persistent `dictate-stt serve` mode for the Swift ANE helper.
+- Local-first roadmap documenting the recommended engine stack: FluidAudio/ANE,
+  Qwen3-ASR, Parakeet MLX, then Whisper fallback.
+
+### Changed
+- ANE transcription now keeps FluidAudio/CoreML models warm instead of launching
+  and reloading the Swift helper for every dictation.
+- README and launch banner now describe the fully local FluidAudio/ANE path and
+  localhost-only API server policy more clearly.
+- MLX-unavailable guidance now suggests ANE/raw dictation or a localhost LLM
+  server before any remote endpoint.
+
+### Fixed
+- `dictate status` no longer crashes when MLX/Metal is unavailable.
+- First-launch STT fallback now correctly selects Parakeet when the ANE helper is
+  missing, rather than optional Qwen3-ASR.
+- Swift helper JSON responses are flushed immediately so persistent mode does
+  not block waiting for `ready` or transcription results.
+
 ### Added
 - `dictate config` CLI — view, set, and reset preferences from the command line
   - 11 configurable keys with validation and aliases (e.g., `quality speedy`)
