@@ -246,15 +246,16 @@ class Preferences:
             # First launch: auto-detect best settings for this hardware
             chip = detect_chip()
             preset = recommended_quality_preset()
-            # Default to ANE (index 0); fall back to Parakeet (index 1) if unavailable
+            # Default to ANE (index 0); fall back to Parakeet (index 2) if unavailable.
+            # Qwen3-ASR is excellent, but it is an optional extra and may not be installed.
             stt = 0  # default: ANE on Neural Engine
             try:
                 from dictate.transcribe import ANETranscriber
                 if not ANETranscriber.is_available():
-                    stt = 1  # Parakeet on GPU
+                    stt = 2  # Parakeet on GPU
                     logger.info("ANE binary not found — falling back to Parakeet STT")
             except Exception:
-                stt = 1  # Parakeet fallback
+                stt = 2  # Parakeet fallback
             logger.info("First launch on %s — quality preset %d, stt preset %d", chip, preset, stt)
             prefs = cls(quality_preset=preset, stt_preset=stt)
             prefs._refresh_discovery()  # Discover model at startup

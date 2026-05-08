@@ -9,7 +9,7 @@
   <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-851%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-1052%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-98%25-brightgreen" alt="Coverage">
 </p>
 
@@ -47,6 +47,8 @@ For Qwen3-ASR support (52-language STT engine):
 ```bash
 pip install dictate-mlx[qwen3-asr]
 ```
+
+This is still local-only. No API key is required; the extra installs the MLX Qwen3-ASR runtime.
 
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 
@@ -91,20 +93,20 @@ The PTT key is configurable: Left Control, Right Control, Right Command, or eith
 
 Short phrases (≤15 words) skip cleanup for instant speed. Longer dictation gets the full treatment.
 
-### Four STT Engines
+### Local STT Engine Stack
 
-All included. Switch anytime from the menu bar.
+Dictate is designed around local speech recognition. Switch anytime from the menu bar.
 
 | Engine | Speed | Languages | Notes |
 |--------|-------|-----------|-------|
-| **ANE (Neural Engine)** | **~65ms** | 25 | Default — runs on Apple Neural Engine, frees GPU for LLM |
-| **Qwen3-ASR 0.6B** | ~50ms | 52 | Fastest multilingual — includes CJK, Arabic, Hindi |
-| **Parakeet TDT 0.6B** | ~50ms | 25 | European languages, GPU via MLX |
-| **Whisper Large V3 Turbo** | ~300ms | 99+ | Maximum language coverage |
+| **ANE / FluidAudio** | **~65ms** | 25 | Default — Parakeet TDT v3 through Core ML on Apple Neural Engine |
+| **Qwen3-ASR 0.6B** | ~50ms | 52 | Best broad multilingual local path — includes CJK, Arabic, Hindi |
+| **Parakeet TDT v3 0.6B** | ~50ms | 25 | Fast European-language GPU/MLX fallback |
+| **Whisper Large V3 Turbo** | ~300ms | 99+ | Compatibility fallback for maximum language coverage |
 
-ANE is the default. It runs speech recognition on Apple's Neural Engine — a dedicated chip that sits idle during most tasks. This frees the GPU entirely for LLM text cleanup, so STT and LLM run concurrently with zero contention. The result: **65-106ms transcription** on real speech.
+ANE is the default. It runs speech recognition through [FluidAudio](https://github.com/FluidInference/FluidAudio) on Apple's Neural Engine — a dedicated chip that sits idle during most tasks. This frees the GPU entirely for LLM text cleanup, so STT and LLM run concurrently with zero contention. The result: **65-106ms transcription** on real speech.
 
-**Qwen3-ASR** is the new recommended GPU engine — 52 languages including Japanese, Chinese, and Korean at Parakeet-level speed. Requires `pip install mlx-audio`.
+**Qwen3-ASR** is the recommended local multilingual engine — 52 languages including Japanese, Chinese, and Korean at Parakeet-level speed. Requires `pip install dictate-mlx[qwen3-asr]`.
 
 Dictate auto-switches engines based on language: ANE/Parakeet for European languages, Qwen3-ASR for CJK and others, Whisper as the universal fallback.
 
@@ -129,7 +131,7 @@ Speak in one language, get output in another. 12 languages supported: English, S
 | **Qwen2.5 1.5B** | ~250ms | 950MB | Fast and lightweight |
 | **Qwen3.5 2B** | ~280ms | 1.3GB | Best balance (default) — newer, smarter |
 | **Qwen2.5 3B** | ~400ms | 1.8GB | Max accuracy |
-| **API Server** | varies | 0 | Use your own LLM server (LM Studio, Ollama, etc.) |
+| **Local API Server** | varies | 0 | Use your own localhost LLM server (LM Studio, Ollama, etc.) |
 
 Short phrases (15 words or less) skip LLM cleanup entirely for instant output. The app picks the best default model for your chip.
 
@@ -150,7 +152,7 @@ With ANE, speech recognition runs on a dedicated chip with its own memory — ze
 Everything accessible from the waveform icon:
 
 - **Writing Style** — Clean Up, Professional, Bullet Points
-- **Quality** — Qwen2.5 1.5B, Qwen3.5 2B, Qwen2.5 3B, or API server
+- **Quality** — Qwen2.5 1.5B, Qwen3.5 2B, Qwen2.5 3B, or localhost API server
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
 - **STT Engine** — ANE (default), Qwen3-ASR, Parakeet, or Whisper
@@ -198,7 +200,7 @@ dictate-stt transcribe recording.wav # Transcribe a WAV file
 ```
 </details>
 
-## API Server
+## Local API Server
 
 If you run a local LLM server, Dictate can use it instead of loading its own model — zero additional RAM:
 
@@ -206,9 +208,21 @@ If you run a local LLM server, Dictate can use it instead of loading its own mod
 DICTATE_LLM_BACKEND=api DICTATE_LLM_API_URL=http://localhost:8005/v1/chat/completions dictate
 ```
 
-Works with any OpenAI-compatible server: [vllm-mlx](https://github.com/vllm-project/vllm-mlx), [LM Studio](https://lmstudio.ai), [Ollama](https://ollama.com).
+Works with any OpenAI-compatible server on your Mac: [vllm-mlx](https://github.com/vllm-project/vllm-mlx), [LM Studio](https://lmstudio.ai), [Ollama](https://ollama.com).
 
-The **Smart** preset auto-routes by length: short phrases → fast local model (~120ms), longer dictation → your API server.
+The **API Server** preset is still local-first. Remote URLs are blocked unless you explicitly set `DICTATE_ALLOW_REMOTE_API=1`.
+
+### Cloud Policy
+
+Dictate does not need cloud services. Audio and text stay on your Mac by default.
+
+Cloud endpoints are intentionally opt-in only:
+
+```bash
+DICTATE_ALLOW_REMOTE_API=1 DICTATE_LLM_API_URL=https://example.com/v1/chat/completions dictate
+```
+
+Do not enable this unless you understand that cleaned-up text may leave your machine. Speech recognition remains local unless you replace Dictate's STT pipeline yourself.
 
 ## Environment Variables
 

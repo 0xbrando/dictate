@@ -66,7 +66,7 @@ func runTranscribe(args: ArraySlice<String>) async {
 
     let asrManager = AsrManager(config: .default)
     do {
-        try await asrManager.initialize(models: models)
+        try await asrManager.loadModels(models)
     } catch {
         exitError("failed to initialize ASR: \(error.localizedDescription)")
     }
@@ -77,6 +77,7 @@ func runTranscribe(args: ArraySlice<String>) async {
     let startTranscribe = CFAbsoluteTimeGetCurrent()
 
     let result: ASRResult
+    var decoderState = TdtDecoderState.make(decoderLayers: await asrManager.decoderLayerCount)
     do {
         if useStdin {
             let data = FileHandle.standardInput.readDataToEndOfFile()
@@ -100,13 +101,13 @@ func runTranscribe(args: ArraySlice<String>) async {
                 samples = resampled
             }
 
-            result = try await asrManager.transcribe(samples)
+            result = try await asrManager.transcribe(samples, decoderState: &decoderState)
         } else {
             let url = URL(fileURLWithPath: filePath!)
             guard FileManager.default.fileExists(atPath: filePath!) else {
                 exitError("file not found: \(filePath!)")
             }
-            result = try await asrManager.transcribe(url)
+            result = try await asrManager.transcribe(url, decoderState: &decoderState)
         }
     } catch {
         exitError("transcription failed: \(error.localizedDescription)")
