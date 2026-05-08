@@ -11,7 +11,7 @@ class Dictate < Formula
   depends_on arch: :arm64
 
   def install
-    system "swift", "build", "-c", "release", "--package-path", "swift-stt"
+    system "swift", "build", "-c", "release", "--disable-sandbox", "--package-path", "swift-stt"
     bin.install "swift-stt/.build/release/dictate-stt"
 
     venv = virtualenv_create(libexec, "python3.11")
