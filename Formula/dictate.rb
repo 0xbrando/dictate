@@ -22,7 +22,7 @@ class Dictate < Formula
 
   test do
     assert_match(/^dictate \d+\.\d+\.\d+$/, shell_output("#{bin}/dictate --version").strip)
-    assert_match "dictate-stt", shell_output("#{bin}/dictate-stt --help")
+    assert_match '"available":true', shell_output("#{bin}/dictate-stt check").delete(" ")
   end
 
   def caveats
