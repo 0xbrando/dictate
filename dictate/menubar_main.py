@@ -267,6 +267,7 @@ def _show_status() -> int:
 
     W = "\033[97m"   # bright white
     G = "\033[32m"   # green
+    Y = "\033[33m"   # yellow
     R = "\033[31m"   # red
     D = "\033[2m"    # dim
     B = "\033[1m"    # bold
@@ -486,7 +487,10 @@ def _run_doctor() -> int:
     from dictate.mlx_check import is_mlx_available
     if not is_mlx_available():
         print(f"  {Y}⚠{N} Parakeet: MLX unavailable (Metal GPU init failed)")
-        warnings.append("MLX cannot initialize Metal GPU — local STT/LLM disabled. Use API mode or check macOS compatibility.")
+        warnings.append(
+            "MLX cannot initialize Metal GPU — MLX STT/LLM disabled. "
+            "Use ANE/raw dictation, a localhost LLM server, or check macOS compatibility."
+        )
     else:
         try:
             import parakeet_mlx  # noqa: F401

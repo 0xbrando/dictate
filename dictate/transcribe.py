@@ -7,6 +7,8 @@ import json
 import logging
 import os
 import re
+import selectors
+import subprocess
 import tempfile
 import threading
 import time
@@ -29,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 API_TIMEOUT_SECONDS = 15
 LOCAL_LLM_TIMEOUT_SECONDS = 10
+MLX_UNAVAILABLE_HINT = (
+    "Check macOS/Metal compatibility, disable LLM cleanup for raw ANE dictation, "
+    "or point the API backend at a localhost LLM server."
+)
 
 
 def _private_tmp_dir() -> str:
@@ -79,7 +85,7 @@ class WhisperTranscriber:
         if not is_mlx_available():
             raise RuntimeError(
                 "MLX cannot initialize Metal GPU on this system. "
-                "Whisper STT requires MLX. Use API mode or check macOS compatibility."
+                f"Whisper STT requires MLX. {MLX_UNAVAILABLE_HINT}"
             )
 
         try:
@@ -175,7 +181,7 @@ class ParakeetTranscriber:
         if not is_mlx_available():
             raise RuntimeError(
                 "MLX cannot initialize Metal GPU on this system. "
-                "Parakeet STT requires MLX. Use API mode or check macOS compatibility."
+                f"Parakeet STT requires MLX. {MLX_UNAVAILABLE_HINT}"
             )
 
         try:
@@ -231,7 +237,7 @@ class Qwen3ASRTranscriber:
         if not is_mlx_available():
             raise RuntimeError(
                 "MLX cannot initialize Metal GPU on this system. "
-                "Qwen3-ASR requires MLX. Use API mode or check macOS compatibility."
+                f"Qwen3-ASR requires MLX. {MLX_UNAVAILABLE_HINT}"
             )
 
         try:
@@ -282,6 +288,7 @@ class ANETranscriber:
         self._config = config
         self._binary = binary_path or self._find_binary()
         self._model_loaded = False
+        self._server: subprocess.Popen[str] | None = None
 
     @staticmethod
     def _find_binary() -> str | None:
@@ -324,8 +331,36 @@ class ANETranscriber:
 
         return bool(ANETranscriber._find_binary())
 
+    @staticmethod
+    def _readline_with_timeout(stream, timeout: float) -> str:
+        selector = selectors.DefaultSelector()
+        try:
+            selector.register(stream, selectors.EVENT_READ)
+            events = selector.select(timeout)
+            if not events:
+                raise subprocess.TimeoutExpired("dictate-stt serve", timeout)
+            return stream.readline()
+        finally:
+            selector.close()
+
+    def _stop_server(self) -> None:
+        proc = self._server
+        self._server = None
+        if not proc:
+            return
+        with contextlib.suppress(Exception):
+            if proc.stdin:
+                proc.stdin.close()
+        if proc.poll() is None:
+            proc.terminate()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                proc.wait(timeout=2)
+        if proc.poll() is None:
+            with contextlib.suppress(Exception):
+                proc.kill()
+
     def load_model(self) -> None:
-        """Verify binary exists. CoreML models download on first transcribe."""
+        """Start the persistent Swift helper and load CoreML models once."""
         if self._model_loaded:
             return
 
@@ -335,20 +370,39 @@ class ANETranscriber:
                 "cd swift-stt && swift build -c release"
             )
 
-        import subprocess
-
         print(f"   ANE STT: {self._binary}...", end=" ", flush=True)
         try:
-            proc = subprocess.run(
-                [self._binary, "check"],
-                capture_output=True, text=True, timeout=5,
+            self._server = subprocess.Popen(
+                [self._binary, "serve"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
             )
-            if proc.returncode != 0:
-                raise RuntimeError(f"ANE STT check failed: {proc.stderr.strip()}")
+
+            if not self._server.stdout:
+                raise RuntimeError("dictate-stt serve did not expose stdout")
+
+            line = self._readline_with_timeout(self._server.stdout, 120)
+            if not line:
+                stderr = self._server.stderr.read() if self._server.stderr else ""
+                raise RuntimeError(f"dictate-stt serve exited early: {stderr.strip()}")
+
+            ready = json.loads(line)
+            if not ready.get("ready"):
+                raise RuntimeError(f"dictate-stt serve did not become ready: {line.strip()}")
         except FileNotFoundError:
             raise RuntimeError(f"dictate-stt not found at: {self._binary}")
         except subprocess.TimeoutExpired:
-            raise RuntimeError("dictate-stt check timed out")
+            self._stop_server()
+            raise RuntimeError("dictate-stt model load timed out")
+        except json.JSONDecodeError as e:
+            self._stop_server()
+            raise RuntimeError(f"dictate-stt serve returned invalid JSON: {e}") from e
+        except Exception:
+            self._stop_server()
+            raise
 
         self._model_loaded = True
         print("\u2713")
@@ -359,10 +413,12 @@ class ANETranscriber:
         sample_rate: int,
         language: str | None = None,  # unused — FluidAudio handles language internally
     ) -> str:
-        import subprocess
-
         if not self._binary:
             raise RuntimeError("dictate-stt binary not found")
+
+        if not self._model_loaded or not self._server or self._server.poll() is not None:
+            self._model_loaded = False
+            self.load_model()
 
         # ANE requires >= 1 second of audio. Pad short clips with silence.
         min_samples = sample_rate  # 1 second
@@ -371,31 +427,35 @@ class ANETranscriber:
             audio = np.pad(audio, (0, min_samples - len(audio)), mode="constant")
 
         with _temp_wav_context(audio, sample_rate) as wav_path:
-            cmd = [self._binary, "transcribe", wav_path]
-
             try:
-                proc = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=30,
-                )
+                if not self._server or not self._server.stdin or not self._server.stdout:
+                    raise RuntimeError("dictate-stt serve is not running")
+                self._server.stdin.write(json.dumps({"path": wav_path}) + "\n")
+                self._server.stdin.flush()
+                line = self._readline_with_timeout(self._server.stdout, 30)
             except subprocess.TimeoutExpired:
                 logger.error("ANE transcription timed out after 30s")
                 return ""
-            except FileNotFoundError:
-                logger.error("dictate-stt not found at: %s", self._binary)
-                return ""
-
-            if proc.returncode != 0:
-                logger.error("ANE transcription failed: %s", proc.stderr.strip())
+            except (BrokenPipeError, OSError, RuntimeError) as e:
+                logger.error("ANE helper failed: %s", e)
+                self._stop_server()
+                self._model_loaded = False
                 return ""
 
             try:
-                result = json.loads(proc.stdout)
+                result = json.loads(line)
+                if "error" in result:
+                    logger.error("ANE transcription failed: %s", result["error"])
+                    return ""
                 text = result.get("text", "")
                 logger.info("ANE transcribed in %dms", result.get("duration_ms", 0))
                 return _dedup_transcription(str(text).strip())
             except json.JSONDecodeError as e:
                 logger.error("Failed to parse ANE output: %s", e)
-                return proc.stdout.strip()
+                return line.strip()
+
+    def __del__(self) -> None:
+        self._stop_server()
 
 
 # ── Shared postprocessing ────────────────────────────────────────
@@ -504,7 +564,7 @@ class TextCleaner:
         if not is_mlx_available():
             raise RuntimeError(
                 "MLX cannot initialize Metal GPU on this system. "
-                "Local LLM cleanup requires MLX. Use API mode or check macOS compatibility."
+                f"Local LLM cleanup requires MLX. {MLX_UNAVAILABLE_HINT}"
             )
 
         from mlx_lm import load

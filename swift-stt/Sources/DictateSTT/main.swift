@@ -7,6 +7,7 @@ func printJSON(_ dict: [String: Any]) {
     if let data = try? JSONSerialization.data(withJSONObject: dict, options: []),
        let str = String(data: data, encoding: .utf8) {
         print(str)
+        fflush(stdout)
     }
 }
 
@@ -122,6 +123,84 @@ func runTranscribe(args: ArraySlice<String>) async {
     ] as [String: Any])
 }
 
+func loadAsrManager(modelVersion: AsrModelVersion) async -> AsrManager {
+    fputs("Loading ASR models...\n", stderr)
+    let startLoad = CFAbsoluteTimeGetCurrent()
+
+    let models: AsrModels
+    do {
+        models = try await AsrModels.downloadAndLoad(version: modelVersion)
+    } catch {
+        exitError("failed to download/load models: \(error.localizedDescription)")
+    }
+
+    let asrManager = AsrManager(config: .default)
+    do {
+        try await asrManager.loadModels(models)
+    } catch {
+        exitError("failed to initialize ASR: \(error.localizedDescription)")
+    }
+
+    let loadTime = CFAbsoluteTimeGetCurrent() - startLoad
+    fputs("Models loaded in \(String(format: "%.1f", loadTime))s\n", stderr)
+    return asrManager
+}
+
+func transcribeFile(_ filePath: String, using asrManager: AsrManager) async -> [String: Any] {
+    let startTranscribe = CFAbsoluteTimeGetCurrent()
+    var decoderState = TdtDecoderState.make(decoderLayers: await asrManager.decoderLayerCount)
+
+    do {
+        let url = URL(fileURLWithPath: filePath)
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            return ["error": "file not found: \(filePath)"]
+        }
+        let result = try await asrManager.transcribe(url, decoderState: &decoderState)
+        let transcribeTime = CFAbsoluteTimeGetCurrent() - startTranscribe
+        return [
+            "text": result.text,
+            "duration_ms": Int(transcribeTime * 1000),
+        ]
+    } catch {
+        return ["error": "transcription failed: \(error.localizedDescription)"]
+    }
+}
+
+func runServe(args: ArraySlice<String>) async {
+    var modelVersion: AsrModelVersion = .v3
+
+    var i = args.startIndex
+    while i < args.endIndex {
+        let arg = args[i]
+        switch arg {
+        case "--model-version":
+            i += 1
+            guard i < args.endIndex else {
+                exitError("--model-version requires v2 or v3")
+            }
+            modelVersion = args[i] == "v2" ? .v2 : .v3
+        default:
+            exitError("unknown option: \(arg)")
+        }
+        i += 1
+    }
+
+    let asrManager = await loadAsrManager(modelVersion: modelVersion)
+    printJSON(["ready": true])
+
+    while let line = readLine() {
+        guard let data = line.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let path = object["path"] as? String else {
+            printJSON(["error": "invalid request"])
+            continue
+        }
+
+        let result = await transcribeFile(path, using: asrManager)
+        printJSON(result)
+    }
+}
+
 // MARK: - Check
 
 func runCheck() {
@@ -156,10 +235,12 @@ struct DictateSTTCLI {
             Usage:
               dictate-stt transcribe <path.wav> [--model-version v2|v3]
               dictate-stt transcribe --stdin --sample-rate <rate>
+              dictate-stt serve [--model-version v2|v3]
               dictate-stt check
 
             Commands:
               transcribe  Transcribe audio to text (outputs JSON to stdout)
+              serve       Keep models loaded and accept JSON-lines {"path": "..."} requests
               check       Check if ANE STT is available on this system
 
             """, stderr)
@@ -169,10 +250,12 @@ struct DictateSTTCLI {
         switch arguments[1] {
         case "transcribe":
             await runTranscribe(args: arguments.dropFirst(2)[...])
+        case "serve":
+            await runServe(args: arguments.dropFirst(2)[...])
         case "check":
             runCheck()
         default:
-            exitError("unknown command: \(arguments[1]). Use 'transcribe' or 'check'.")
+            exitError("unknown command: \(arguments[1]). Use 'transcribe', 'serve', or 'check'.")
         }
     }
 }

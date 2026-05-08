@@ -18,9 +18,45 @@ from dictate.menubar_main import (
     _acquire_singleton_lock,
     _daemonize,
     _run_update,
+    _show_status,
     main,
     setup_logging,
 )
+
+
+# ── _show_status ───────────────────────────────────────────────────
+
+
+class TestShowStatus:
+    """Covers status command runtime branches."""
+
+    @patch("dictate.config.get_cached_model_disk_size", return_value="3.0 GB")
+    @patch("dictate.config.is_model_cached", return_value=True)
+    @patch("dictate.mlx_check.is_mlx_available", return_value=False)
+    @patch("dictate.menubar_main.subprocess.run")
+    def test_mlx_unavailable_does_not_crash(
+        self,
+        mock_run,
+        _mock_mlx,
+        _mock_cached,
+        _mock_size,
+        tmp_path,
+        monkeypatch,
+        capsys,
+    ):
+        """Status should print a warning instead of crashing when MLX is unavailable."""
+        import dictate.presets as presets
+
+        prefs_dir = tmp_path / "Dictate"
+        prefs_file = prefs_dir / "preferences.json"
+        monkeypatch.setattr(presets, "PREFS_DIR", prefs_dir)
+        monkeypatch.setattr(presets, "PREFS_FILE", prefs_file)
+
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
+
+        assert _show_status() == 0
+        captured = capsys.readouterr()
+        assert "MLX unavailable" in captured.out
 
 
 # ── _acquire_singleton_lock ────────────────────────────────────────

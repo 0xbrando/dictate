@@ -110,7 +110,7 @@ QUALITY_PRESETS: list[QualityPreset] = [
         label="API Server",
         llm_model=LLMModel.QWEN25_1_5B,
         backend=LLMBackend.API,
-        description="Use external API server (LM Studio, Ollama, etc.)",
+        description="Use localhost API server (LM Studio, Ollama, etc.)",
     ),
     QualityPreset(
         label="Qwen2.5 1.5B (~250ms, 950MB)",

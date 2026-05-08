@@ -1059,7 +1059,7 @@ class DictateMenuBarApp(rumps.App):
         except RuntimeError as e:
             if "MLX" in str(e):
                 logger.error("MLX unavailable: %s", e)
-                self._post_ui("status", "MLX unavailable — use API mode")
+                self._post_ui("status", "MLX unavailable — try ANE/raw or localhost LLM")
             else:
                 logger.exception("Failed to initialize pipeline")
                 self._post_ui("status", "Model load failed")

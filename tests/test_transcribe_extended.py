@@ -26,6 +26,7 @@ from dictate.transcribe import (
     DEDUP_WINDOW_SECONDS,
     SMART_ROUTING_THRESHOLD,
     APITextCleaner,
+    ANETranscriber,
     ParakeetTranscriber,
     TextCleaner,
     TranscriptionPipeline,
@@ -269,6 +270,79 @@ class TestParakeetTranscriber:
             result = t.transcribe(np.zeros(16000, dtype=np.int16), 16000)
             assert t._model is not None
             assert result == "Loaded."
+
+
+# ── ANETranscriber ────────────────────────────────────────────
+
+
+class TestANETranscriber:
+    """Tests for persistent dictate-stt helper integration."""
+
+    @pytest.fixture
+    def config(self):
+        return WhisperConfig(model="parakeet-tdt-v3-coreml", language=None, engine=STTEngine.ANE)
+
+    def test_load_model_starts_persistent_server(self, config, capsys):
+        proc = MagicMock()
+        proc.stdout.readline.return_value = '{"ready": true}\n'
+        proc.poll.return_value = None
+
+        with (
+            patch("dictate.transcribe.subprocess.Popen", return_value=proc) as mock_popen,
+            patch.object(ANETranscriber, "_readline_with_timeout", return_value='{"ready": true}\n'),
+        ):
+            t = ANETranscriber(config, binary_path="/tmp/dictate-stt")
+            t.load_model()
+
+        assert t._model_loaded is True
+        assert t._server is proc
+        mock_popen.assert_called_once()
+        assert mock_popen.call_args[0][0] == ["/tmp/dictate-stt", "serve"]
+        captured = capsys.readouterr()
+        assert "ANE STT" in captured.out
+        assert "✓" in captured.out
+        t._stop_server()
+
+    def test_transcribe_uses_persistent_server(self, config):
+        proc = MagicMock()
+        proc.stdin = MagicMock()
+        proc.stdout = MagicMock()
+        proc.poll.return_value = None
+
+        t = ANETranscriber(config, binary_path="/tmp/dictate-stt")
+        t._server = proc
+        t._model_loaded = True
+
+        with patch.object(
+            ANETranscriber,
+            "_readline_with_timeout",
+            return_value='{"text": "hello world hello world", "duration_ms": 12}\n',
+        ):
+            result = t.transcribe(np.zeros(16000, dtype=np.int16), 16000)
+
+        assert result == "hello world"
+        proc.stdin.write.assert_called_once()
+        assert '"path":' in proc.stdin.write.call_args[0][0]
+        proc.stdin.flush.assert_called_once()
+        t._stop_server()
+
+    def test_transcribe_server_error_returns_empty(self, config):
+        proc = MagicMock()
+        proc.stdin = MagicMock()
+        proc.stdout = MagicMock()
+        proc.poll.return_value = None
+
+        t = ANETranscriber(config, binary_path="/tmp/dictate-stt")
+        t._server = proc
+        t._model_loaded = True
+
+        with patch.object(
+            ANETranscriber,
+            "_readline_with_timeout",
+            return_value='{"error": "model missing"}\n',
+        ):
+            assert t.transcribe(np.zeros(16000, dtype=np.int16), 16000) == ""
+        t._stop_server()
 
 
 # ── _postprocess extended ─────────────────────────────────────

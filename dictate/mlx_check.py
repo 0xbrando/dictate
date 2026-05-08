@@ -59,7 +59,7 @@ def is_mlx_available() -> bool:
         _mlx_available = False
         logger.warning(
             "Metal GPU not available (MTLCreateSystemDefaultDevice returned nil). "
-            "MLX features disabled — use API mode instead."
+            "MLX features disabled — use ANE/raw dictation or a localhost LLM server."
         )
         return False
 
