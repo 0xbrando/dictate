@@ -8,11 +8,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_prefs(tmp_path, monkeypatch):
+    """Redirect preferences so device-list tests do not read local mic choices."""
+    prefs_dir = tmp_path / "Dictate"
+    prefs_dir.mkdir()
+    monkeypatch.setattr("dictate.presets.PREFS_DIR", prefs_dir)
+    monkeypatch.setattr("dictate.presets.PREFS_FILE", prefs_dir / "preferences.json")
+    monkeypatch.setattr("dictate.presets.DICTIONARY_FILE", prefs_dir / "dictionary.json")
+
+
 class TestListDevices:
     """Tests for _list_devices() function."""
 
     def test_list_devices_with_devices(self, capsys):
-        """Should list devices with default marker."""
+        """Should list devices with default and selected markers."""
         from dictate.audio import AudioDevice
         from dictate.menubar_main import _list_devices
 
@@ -30,7 +40,32 @@ class TestListDevices:
         assert "MacBook Pro Microphone" in output
         assert "USB Audio Device" in output
         assert "AirPods Pro" in output
-        assert "default" in output
+        assert "macOS default" in output
+        assert "selected" in output
+
+    def test_list_devices_shows_configured_device(self, capsys):
+        """Should show a configured device separately from macOS default."""
+        from dictate.audio import AudioDevice
+        from dictate.menubar_main import _list_devices
+        from dictate.presets import Preferences
+
+        prefs = Preferences()
+        prefs.device_id = 1
+        prefs.save()
+        mock_devices = [
+            AudioDevice(index=0, name="Jump Desktop Audio", is_default=True),
+            AudioDevice(index=1, name="RODECaster Pro II", is_default=False),
+        ]
+
+        with patch("dictate.audio.list_input_devices", return_value=mock_devices):
+            result = _list_devices()
+
+        assert result == 0
+        output = capsys.readouterr().out
+        selected_line = [line for line in output.splitlines() if "RODECaster Pro II" in line][-1]
+        default_line = [line for line in output.splitlines() if "Jump Desktop Audio" in line][-1]
+        assert "selected" in selected_line
+        assert "macOS default" in default_line
 
     def test_list_devices_no_devices(self, capsys):
         """Should report no devices found."""
@@ -161,7 +196,7 @@ class TestListDevices:
         assert result == 0
         output = capsys.readouterr().out
         assert "Only Mic" in output
-        assert "default" in output
+        assert "macOS default" in output
 
     def test_list_devices_many_devices(self, capsys):
         """Should handle many devices."""

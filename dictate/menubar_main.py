@@ -123,6 +123,10 @@ def _config_command(args: list[str]) -> int:
             "values": ["on", "off", "true", "false", "1", "0"],
             "type": "bool",
         },
+        "device_id": {
+            "description": "Audio input device id, or auto to follow macOS default",
+            "type": "device_id",
+        },
     }
 
     subcmd = args[0] if args else "show"
@@ -153,6 +157,8 @@ def _config_command(args: list[str]) -> int:
                     print(f"  {Y}{key}{N}  {D}{desc}{N}  [{vals}] or [{alias_str}]")
                 elif info["type"] == "bool":
                     print(f"  {Y}{key}{N}  {D}{desc}{N}  [on/off]")
+                elif info["type"] == "device_id":
+                    print(f"  {Y}{key}{N}  {D}{desc}{N}  [NUMBER/auto]")
                 else:
                     print(f"  {Y}{key}{N}  {D}{desc}{N}")
             return 1
@@ -200,6 +206,27 @@ def _config_command(args: list[str]) -> int:
         elif info["type"] == "string":
             resolved = value
 
+        elif info["type"] == "device_id":
+            if value.lower() in ("auto", "default", "system", "none"):
+                resolved = None
+            elif value.isdigit():
+                resolved = int(value)
+                try:
+                    from dictate.audio import list_input_devices
+                    valid_device_ids = {dev.index for dev in list_input_devices()}
+                except Exception as e:
+                    print(f"{R}Could not query input devices:{N} {e}", file=sys.stderr)
+                    return 1
+                if resolved not in valid_device_ids:
+                    valid = ", ".join(str(i) for i in sorted(valid_device_ids)) or "none"
+                    print(f"{R}Invalid device_id:{N} {value}", file=sys.stderr)
+                    print(f"{D}Valid input devices: {valid}, or auto{N}", file=sys.stderr)
+                    return 1
+            else:
+                print(f"{R}Invalid device_id:{N} {value}", file=sys.stderr)
+                print(f"{D}Use a device number from 'dictate devices', or auto{N}", file=sys.stderr)
+                return 1
+
         else:
             resolved = value
 
@@ -212,7 +239,8 @@ def _config_command(args: list[str]) -> int:
         field_name = field_map.get(key, key)
         setattr(prefs, field_name, resolved)
         prefs.save()
-        print(f"{G}✓{N} Set {W}{key}{N} = {Y}{value}{N}")
+        display_value = "auto" if key == "device_id" and resolved is None else value
+        print(f"{G}✓{N} Set {W}{key}{N} = {Y}{display_value}{N}")
         return 0
 
     # Default: show config
@@ -236,6 +264,16 @@ def _config_command(args: list[str]) -> int:
     cmd_label = next((k[1] for k in COMMAND_KEYS if k[0] == prefs.command_key), prefs.command_key)
     in_lang = next((l[1] for l in INPUT_LANGUAGES if l[0] == prefs.input_language), prefs.input_language)
     out_lang = next((l[1] for l in OUTPUT_LANGUAGES if l[0] == prefs.output_language), prefs.output_language)
+    if prefs.device_id is None:
+        device_value = "auto"
+        device_label = "Follow macOS default"
+    else:
+        device_value = str(prefs.device_id)
+        try:
+            from dictate.audio import get_device_name
+            device_label = get_device_name(prefs.device_id)
+        except Exception:
+            device_label = "Unknown or unavailable"
 
     print(f"\n{W}{B}Dictate Config{N}\n")
     print(f"  {W}writing_style{N}   {Y}{prefs.writing_style}{N}  {D}({style_name}){N}")
@@ -245,6 +283,7 @@ def _config_command(args: list[str]) -> int:
     print(f"  {W}output_language{N} {Y}{prefs.output_language}{N}  {D}({out_lang}){N}")
     print(f"  {W}ptt_key{N}         {Y}{prefs.ptt_key}{N}  {D}({ptt_label}){N}")
     print(f"  {W}command_key{N}     {Y}{prefs.command_key}{N}  {D}({cmd_label}){N}")
+    print(f"  {W}device_id{N}       {Y}{device_value}{N}  {D}({device_label}){N}")
     print(f"  {W}llm_cleanup{N}     {Y}{'on' if prefs.llm_cleanup else 'off'}{N}")
     print(f"  {W}sound{N}           {Y}{prefs.sound_preset}{N}  {D}({sound.label if sound else 'Unknown'}){N}")
     print(f"  {W}llm_endpoint{N}    {Y}{prefs.llm_endpoint}{N}")
@@ -341,6 +380,15 @@ def _show_status() -> int:
         print(f"  Input language: {prefs.input_language}")
         print(f"  Output language: {prefs.output_language}")
         print(f"  PTT key: {prefs.ptt_key}")
+        if prefs.device_id is None:
+            print("  Input device: auto (follow macOS default)")
+        else:
+            try:
+                from dictate.audio import get_device_name
+                device_name = get_device_name(prefs.device_id)
+            except Exception:
+                device_name = "unknown or unavailable"
+            print(f"  Input device: [{prefs.device_id}] {device_name}")
     else:
         print(f"  {D}No preferences file (will use defaults){N}")
     print()
@@ -589,7 +637,9 @@ def _list_devices() -> int:
 
     try:
         from dictate.audio import list_input_devices
+        from dictate.presets import Preferences
         devices = list_input_devices()
+        prefs = Preferences.load()
     except ImportError:
         print(f"  {Y}⚠{N} sounddevice not installed")
         return 1
@@ -602,11 +652,24 @@ def _list_devices() -> int:
         print(f"  {D}Check System Settings > Sound > Input.{N}")
         return 1
 
+    selected_device = next((d for d in devices if d.index == prefs.device_id), None)
+    if prefs.device_id is None:
+        print(f"  {D}Using: follow macOS default input{N}\n")
+    elif selected_device is not None:
+        print(f"  {D}Using: [{selected_device.index}] {selected_device.name}{N}\n")
+    else:
+        print(f"  {Y}Using unavailable device_id: {prefs.device_id}{N}\n")
+
     for dev in devices:
+        is_selected = dev.index == prefs.device_id or (prefs.device_id is None and dev.is_default)
+        labels = []
+        if is_selected:
+            labels.append("selected")
         if dev.is_default:
-            print(f"  {G}●{N} [{W}{dev.index}{N}] {dev.name}  {G}← default{N}")
-        else:
-            print(f"  {D}○{N} [{W}{dev.index}{N}] {dev.name}")
+            labels.append("macOS default")
+        suffix = f"  {G}← {', '.join(labels)}{N}" if labels else ""
+        marker = f"{G}●{N}" if is_selected else f"{D}○{N}"
+        print(f"  {marker} [{W}{dev.index}{N}] {dev.name}{suffix}")
 
     print()
     print(f"  {D}Set input device: dictate config set device_id <NUMBER>{N}")

@@ -7,6 +7,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `dictate config set device_id` now works as advertised, including `auto` to
+  follow the macOS default input.
+- `dictate devices`, `dictate status`, and the menu bar mic picker now clearly
+  distinguish Dictate's selected input from the macOS default input.
+
 ## [2.5.1] - 2026-05-08
 
 ### Added

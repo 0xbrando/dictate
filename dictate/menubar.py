@@ -266,11 +266,23 @@ class DictateMenuBarApp(rumps.App):
     def _build_mic_menu(self) -> rumps.MenuItem:
         mic_menu = rumps.MenuItem("Input Device")
         devices = list_input_devices()
+        default_device = next((dev for dev in devices if dev.is_default), None)
+        default_label = "Follow System Default"
+        if default_device is not None:
+            default_label += f" ([{default_device.index}] {default_device.name})"
+
+        default_item = rumps.MenuItem(default_label, callback=self._on_mic_select)
+        default_item.state = self._prefs.device_id is None
+        default_item._device_index = None  # type: ignore[attr-defined]
+        mic_menu.add(default_item)
+        if devices:
+            mic_menu.add(None)
+
         for dev in devices:
-            is_selected = dev.index == self._prefs.device_id or (
-                self._prefs.device_id is None and dev.is_default
-            )
+            is_selected = dev.index == self._prefs.device_id
             title = f"[{dev.index}] {dev.name}"
+            if dev.is_default:
+                title += " (macOS default)"
             item = rumps.MenuItem(title, callback=self._on_mic_select)
             item.state = is_selected
             item._device_index = dev.index  # type: ignore[attr-defined]

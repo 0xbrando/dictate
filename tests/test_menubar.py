@@ -1467,7 +1467,8 @@ class TestBuildMicMenuR2:
         dev2 = MagicMock(index=1, name="Mic 2", is_default=False)
         with patch("dictate.menubar.list_input_devices", return_value=[dev1, dev2]):
             menu = mock_app._build_mic_menu()
-            assert len(menu._children) == 2
+            assert len(menu._children) == 4
+            assert menu._children[0].title.startswith("Follow System Default")
 
     def test_marks_selected(self, mock_app):
         dev = MagicMock(index=5, name="USB Mic", is_default=False)
@@ -1477,6 +1478,13 @@ class TestBuildMicMenuR2:
             for c in menu._children:
                 if hasattr(c, "_device_index") and c._device_index == 5:
                     assert c.state
+
+    def test_can_select_system_default(self, mock_app):
+        sender = MagicMock()
+        sender._device_index = None
+        with patch.object(mock_app, "_apply_prefs"), patch.object(mock_app, "_build_menu"):
+            mock_app._on_mic_select(sender)
+        assert mock_app._prefs.device_id is None
 
 
 class TestReactiveWaveformR2:

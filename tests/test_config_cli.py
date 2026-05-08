@@ -251,6 +251,31 @@ class TestConfigSet:
         prefs = Preferences.load()
         assert prefs.advanced_mode is False
 
+    def test_set_device_id_by_index(self, capsys):
+        from dictate.audio import AudioDevice
+        from dictate.presets import Preferences
+
+        devices = [AudioDevice(index=7, name="USB Mic", is_default=False)]
+        with mock.patch("dictate.audio.list_input_devices", return_value=devices):
+            rc = _run_config("set", "device_id", "7")
+
+        assert rc == 0
+        prefs = Preferences.load()
+        assert prefs.device_id == 7
+
+    def test_set_device_id_auto(self, capsys):
+        from dictate.presets import Preferences
+
+        prefs = Preferences()
+        prefs.device_id = 7
+        prefs.save()
+
+        rc = _run_config("set", "device_id", "auto")
+
+        assert rc == 0
+        prefs = Preferences.load()
+        assert prefs.device_id is None
+
 
 # ── Error handling ──────────────────────────────────────────────
 
@@ -303,6 +328,17 @@ class TestConfigErrors:
         assert rc == 1
         err = capsys.readouterr().err
         assert "Invalid value" in err
+
+    def test_invalid_device_id(self, capsys):
+        from dictate.audio import AudioDevice
+
+        devices = [AudioDevice(index=7, name="USB Mic", is_default=False)]
+        with mock.patch("dictate.audio.list_input_devices", return_value=devices):
+            rc = _run_config("set", "device_id", "99")
+
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "Invalid device_id" in err
 
     def test_set_missing_value(self, capsys):
         rc = _run_config("set", "writing_style")
