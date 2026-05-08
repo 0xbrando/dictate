@@ -9,6 +9,8 @@ Output: dist/Dictate.app
 
 from setuptools import setup
 
+from dictate import __version__
+
 APP = ["dictate/menubar_main.py"]
 DATA_FILES = []
 OPTIONS = {
@@ -18,8 +20,8 @@ OPTIONS = {
         "CFBundleName": "Dictate",
         "CFBundleDisplayName": "Dictate",
         "CFBundleIdentifier": "com.0xbrando.dictate",
-        "CFBundleVersion": "2.4.1",
-        "CFBundleShortVersionString": "2.4.1",
+        "CFBundleVersion": __version__,
+        "CFBundleShortVersionString": __version__,
         "LSUIElement": True,  # Menu bar only — no Dock icon
         "LSMinimumSystemVersion": "14.0",  # macOS Sonoma+ for MLX
         "NSMicrophoneUsageDescription": (

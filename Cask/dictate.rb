@@ -3,7 +3,7 @@
 # Or submit to homebrew/cask once notable enough
 
 cask "dictate" do
-  version "2.4.1"
+  version "2.5.1"
   sha256 "PLACEHOLDER_UPDATE_ON_RELEASE"
 
   url "https://github.com/0xbrando/dictate/releases/download/v#{version}/Dictate-v#{version}-arm64.dmg"
@@ -26,7 +26,10 @@ cask "dictate" do
     Dictate requires microphone and accessibility permissions.
     Grant them in System Settings → Privacy & Security when prompted.
 
-    Speech models are downloaded on first launch (~75 MB for default model).
-    All processing happens locally on your Mac — nothing leaves your device.
+    Dictate downloads only the selected local models on first use, then caches
+    them in ~/.cache/huggingface. Other models are optional one-click downloads.
+
+    All processing happens locally on your Mac; nothing leaves your device unless
+    you explicitly opt into a remote API endpoint.
   EOS
 end
