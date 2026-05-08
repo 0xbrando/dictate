@@ -4,8 +4,8 @@ Dictate supports two possible Homebrew paths:
 
 - `Formula/dictate.rb`: source install that creates a Python virtualenv, builds
   the Swift ANE helper, and links `dictate` plus `dictate-stt`.
-- `Cask/dictate.rb`: future app-bundle install that needs a reliable DMG release
-  artifact. Keep this as a template until packaging/notarization is ready.
+- Future cask: app-bundle install that needs a reliable DMG release artifact.
+  Add `Cask/dictate.rb` only after packaging/notarization is ready.
 
 ## Target User Flow
 

@@ -7,6 +7,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-05-08
+
+### Changed
+- Removed the stale cask template until a real DMG/notarization flow is ready.
+
 ## [2.5.2] - 2026-05-08
 
 ### Fixed

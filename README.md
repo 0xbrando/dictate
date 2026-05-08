@@ -17,9 +17,6 @@
   <b>Hold a key → Speak → Release → Clean text appears wherever your cursor is.</b>
 </p>
 
-<!-- TODO: Replace with actual demo GIF once recorded -->
-<!-- <p align="center"><img src="assets/demo.gif" alt="Dictate demo" width="600"></p> -->
-
 ---
 
 ## Why Dictate?
