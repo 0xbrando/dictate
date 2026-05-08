@@ -33,28 +33,28 @@ class TestRecommendedQualityPreset:
     """Cover recommended_quality_preset() edge cases."""
 
     def test_recommended_preset_non_ultra_non_max(self, monkeypatch):
-        """Line 42: When chip has neither 'ultra' nor 'max', returns 1."""
+        """When chip has neither 'ultra' nor 'max', returns balanced Qwen3.5 2B."""
         import dictate.presets as presets
 
         monkeypatch.setattr(presets, "detect_chip", lambda: "M1")
         result = presets.recommended_quality_preset()
-        assert result == 1
+        assert result == 2
 
     def test_recommended_preset_with_ultra(self, monkeypatch):
-        """Ultra chip returns 2."""
+        """Ultra chip returns max-quality 3B."""
         import dictate.presets as presets
 
         monkeypatch.setattr(presets, "detect_chip", lambda: "M2 Ultra")
         result = presets.recommended_quality_preset()
-        assert result == 2
+        assert result == 3
 
     def test_recommended_preset_with_max(self, monkeypatch):
-        """Max chip returns 2."""
+        """Max chip returns max-quality 3B."""
         import dictate.presets as presets
 
         monkeypatch.setattr(presets, "detect_chip", lambda: "M3 Max")
         result = presets.recommended_quality_preset()
-        assert result == 2
+        assert result == 3
 
 
 class TestPreferencesLoadFirstLaunch:
@@ -93,7 +93,7 @@ class TestPreferencesLoadFirstLaunch:
         monkeypatch.setattr(presets.Preferences, "load", classmethod(mock_load))
         
         loaded = presets.Preferences.load()
-        assert loaded.quality_preset == 1  # M1 returns preset 1
+        assert loaded.quality_preset == 2  # M1 returns balanced Qwen3.5 2B
         assert prefs_file.exists()
 
 
@@ -123,8 +123,8 @@ class TestPreferencesV1Migration:
         monkeypatch.setattr(presets.Preferences, "_refresh_discovery", lambda self: None)
 
         loaded = presets.Preferences.load()
-        # v1: 2 -> 3 (v1 migration) -> 2 (v6 migration: old idx 3 = Qwen2.5-3B stays at idx 2)
-        assert loaded.quality_preset == 2
+        # v1: 2 -> 3, which is still the max-quality local preset.
+        assert loaded.quality_preset == 3
 
 
 class TestRefreshDiscovery:
@@ -241,10 +241,13 @@ class TestSttProperties:
         prefs = presets.Preferences(stt_preset=0)  # ANE
         assert prefs.stt_engine == STTEngine.ANE
 
-        prefs = presets.Preferences(stt_preset=1)  # Parakeet
+        prefs = presets.Preferences(stt_preset=1)  # Qwen3-ASR
+        assert prefs.stt_engine == STTEngine.QWEN3_ASR
+
+        prefs = presets.Preferences(stt_preset=2)  # Parakeet
         assert prefs.stt_engine == STTEngine.PARAKEET
 
-        prefs = presets.Preferences(stt_preset=2)  # Whisper
+        prefs = presets.Preferences(stt_preset=3)  # Whisper
         assert prefs.stt_engine == STTEngine.WHISPER
 
     def test_stt_model_property(self):
@@ -254,10 +257,13 @@ class TestSttProperties:
         prefs = presets.Preferences(stt_preset=0)  # ANE
         assert "coreml" in prefs.stt_model.lower()
 
-        prefs = presets.Preferences(stt_preset=1)  # Parakeet
+        prefs = presets.Preferences(stt_preset=1)  # Qwen3-ASR
+        assert "qwen3-asr" in prefs.stt_model.lower()
+
+        prefs = presets.Preferences(stt_preset=2)  # Parakeet
         assert "parakeet" in prefs.stt_model.lower()
 
-        prefs = presets.Preferences(stt_preset=2)  # Whisper
+        prefs = presets.Preferences(stt_preset=3)  # Whisper
         assert "whisper" in prefs.stt_model.lower()
 
 

@@ -119,7 +119,7 @@ class TestConfigSet:
         from dictate.presets import Preferences
 
         prefs = Preferences.load()
-        assert prefs.quality_preset == 2
+        assert prefs.quality_preset == 3
 
     def test_set_stt_by_alias(self, capsys):
         rc = _run_config("set", "stt", "whisper")
@@ -127,7 +127,7 @@ class TestConfigSet:
         from dictate.presets import Preferences
 
         prefs = Preferences.load()
-        assert prefs.stt_preset == 2  # Whisper is at index 2 (after ANE at 1)
+        assert prefs.stt_preset == 3  # Whisper is after ANE, Qwen3-ASR, and Parakeet
 
     def test_set_stt_by_index(self, capsys):
         rc = _run_config("set", "stt", "0")

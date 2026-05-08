@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import queue
 import subprocess
 import sys
@@ -43,6 +44,9 @@ from dictate.presets import (
     Preferences,
 )
 from dictate.transcribe import TranscriptionPipeline
+
+MAX_UPDATE_RESPONSE_BYTES = 1_048_576
+
 try:
     from dictate import __version__ as DICTATE_VERSION
 except ImportError:
@@ -66,6 +70,18 @@ except ImportError:
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+
+def _is_module_installed(name: str) -> bool:
+    import importlib.util
+
+    module = sys.modules.get(name)
+    if module is None:
+        try:
+            return importlib.util.find_spec(name) is not None
+        except (ImportError, ValueError):
+            return False
+    return module is not None
 
 logger = logging.getLogger(__name__)
 
@@ -400,9 +416,7 @@ class DictateMenuBarApp(rumps.App):
                 from dictate.mlx_check import is_mlx_available
                 if not is_mlx_available():
                     continue
-                try:
-                    import parakeet_mlx  # noqa: F401
-                except ImportError:
+                if not _is_module_installed("parakeet_mlx"):
                     continue
             # Only show Qwen3-ASR if mlx-audio is installed
             if preset.engine == STTEngine.QWEN3_ASR:
@@ -566,6 +580,28 @@ class DictateMenuBarApp(rumps.App):
             subprocess.run(["open", str(cache_path)])
         else:
             rumps.alert("Cache Not Found", f"Cache directory does not exist:\n{cache_path}")
+
+    def _check_for_update(self) -> None:
+        """Best-effort PyPI update check for the menu bar app."""
+        try:
+            from urllib.request import urlopen
+
+            with urlopen("https://pypi.org/pypi/dictate-mlx/json", timeout=3) as response:
+                data = response.read(MAX_UPDATE_RESPONSE_BYTES)
+            if len(data) >= MAX_UPDATE_RESPONSE_BYTES:
+                logger.warning("Update check response too large")
+                return
+            latest = json.loads(data.decode("utf-8")).get("info", {}).get("version")
+            if not latest:
+                return
+            if parse_version(latest) > parse_version(DICTATE_VERSION):
+                rumps.notification(
+                    "Dictate update available",
+                    f"Version {latest} is available",
+                    "Run `dictate update` to upgrade.",
+                )
+        except Exception:
+            logger.debug("Update check failed", exc_info=True)
 
     # ── Menu callbacks ─────────────────────────────────────────────
 
@@ -989,11 +1025,13 @@ class DictateMenuBarApp(rumps.App):
 
     def start_app(self) -> None:
         # Set as background-only (accessory) app — no Dock icon, proper menu bar behavior
-        try:
-            from AppKit import NSApplication
-            NSApplication.sharedApplication().setActivationPolicy_(2)  # NSApplicationActivationPolicyAccessory
-        except Exception:
-            logger.warning("Could not set activation policy to Accessory")
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            try:
+                from AppKit import NSApplication
+
+                NSApplication.sharedApplication().setActivationPolicy_(2)  # NSApplicationActivationPolicyAccessory
+            except Exception:
+                logger.warning("Could not set activation policy to Accessory")
 
         init_thread = threading.Thread(target=self._init_pipeline, daemon=True)
         init_thread.start()
@@ -1232,4 +1270,3 @@ class DictateMenuBarApp(rumps.App):
             cleanup_temp_files()
         except Exception:
             logger.debug("Icon temp file cleanup failed", exc_info=True)
-

@@ -319,7 +319,7 @@ class TestTextCleaner:
         with patch.dict(sys.modules, {"mlx_lm": mock_mlx, "mlx_lm.sample_utils": mock_su}):
             c = TextCleaner(config)
             c.load_model()
-            mock_mlx.load.assert_called_once_with(config.model, tokenizer_config={"trust_remote_code": True})
+            mock_mlx.load.assert_called_once_with(config.model)
             assert c._model is not None
             assert c._tokenizer is not None
             captured = capsys.readouterr()

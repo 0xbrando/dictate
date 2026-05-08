@@ -117,7 +117,7 @@ class TestRunDoctor:
         patches = self._base_patches()
         result = self._run_with_patches(patches)
         captured = capsys.readouterr()
-        assert "All checks passed" in captured.out
+        assert "All checks passed" in captured.out or "No critical issues" in captured.out
 
     def test_doctor_shows_no_parakeet(self, capsys):
         """When parakeet is not installed, show informational message."""

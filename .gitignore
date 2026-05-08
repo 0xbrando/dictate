@@ -58,6 +58,9 @@ temp/
 # MLX model cache (large files, downloaded on demand)
 mlx_models/
 
+# Swift Package Manager build artifacts
+swift-stt/.build/
+
 # Audio temp files
 *.wav
 ptt_chunk_*.wav
