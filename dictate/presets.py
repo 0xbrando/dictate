@@ -113,19 +113,19 @@ QUALITY_PRESETS: list[QualityPreset] = [
         description="Use localhost API server (LM Studio, Ollama, etc.)",
     ),
     QualityPreset(
-        label="Qwen2.5 1.5B (~250ms, 950MB)",
+        label="Fast — Qwen2.5 1.5B",
         llm_model=LLMModel.QWEN25_1_5B,
-        description="Fast and reliable",
+        description="Lowest RAM, quick cleanup",
     ),
     QualityPreset(
-        label="Qwen3.5 2B (~280ms, 1.3GB)",
+        label="Balanced — Qwen3.5 2B",
         llm_model=LLMModel.QWEN35_2B,
-        description="Best balance — newer, smarter",
+        description="Default, best speed/quality tradeoff",
     ),
     QualityPreset(
-        label="Qwen2.5 3B (~400ms, 1.8GB)",
+        label="Quality — Qwen2.5 3B",
         llm_model=LLMModel.QWEN_3B,
-        description="Max quality",
+        description="Slower, best polish",
     ),
 ]
 

@@ -315,14 +315,14 @@ class DictateMenuBarApp(rumps.App):
                 
                 if cached:
                     # Model is downloaded - show checkmark
-                    display_label = f"{preset.label} ✓"
+                    display_label = f"{preset.label} — {preset.description} ✓"
                 elif downloading:
                     # Model is downloading - show progress
-                    display_label = f"{preset.label} ⏳ {int(progress)}%"
+                    display_label = f"{preset.label} — downloading {int(progress)}%"
                 else:
                     # Model not downloaded - show size and download indicator
                     size = get_model_size_str(hf_repo)
-                    display_label = f"{preset.label} ↓ {size}"
+                    display_label = f"{preset.label} — {preset.description} ↓ {size}"
                     
             item = rumps.MenuItem(display_label, callback=self._on_quality_select)
             item.state = i == self._prefs.quality_preset

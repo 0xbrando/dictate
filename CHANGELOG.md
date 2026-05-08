@@ -13,6 +13,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `dictate devices`, `dictate status`, and the menu bar mic picker now clearly
   distinguish Dictate's selected input from the macOS default input.
 
+### Changed
+- Quality presets now use clearer Fast/Balanced/Quality labels in the app and
+  README, with explicit guidance that only selected models download.
+
 ## [2.5.1] - 2026-05-08
 
 ### Added

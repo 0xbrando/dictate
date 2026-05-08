@@ -887,7 +887,7 @@ def _first_time_download() -> None:
         R = "\033[0m"
         BAR_WIDTH = 30
 
-        tty.write(f"  {W}First-time setup{R} {D}— downloading models (one-time only){R}\n\n")
+        tty.write(f"  {W}First-time setup{R} {D}— downloading only the selected models{R}\n\n")
         tty.flush()
 
         from dictate.model_download import download_model, get_model_size_gb
@@ -1121,6 +1121,7 @@ def main() -> int:
 
   {W}TIPS{R}
   {D}FluidAudio/Parakeet runs on Apple's Neural Engine — zero GPU usage.{R}
+  {D}Only the selected cleanup model downloads; choose Quality later to fetch others.{R}
   {D}The Swift helper stays warm, so repeated dictations avoid model reloads.{R}
   {D}Qwen3-ASR covers broader multilingual local speech when installed.{R}
   {D}Remote endpoints are blocked unless you explicitly opt in.{R}

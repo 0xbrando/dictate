@@ -9,7 +9,7 @@
   <a href="https://github.com/0xbrando/dictate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/0xbrando/dictate" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-1052%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-1061%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-98%25-brightgreen" alt="Coverage">
 </p>
 
@@ -52,7 +52,7 @@ This is still local-only. No API key is required; the extra installs the MLX Qwe
 
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 
-macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Models download automatically (~1-3GB depending on preset, cached in `~/.cache/huggingface/`).
+macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Dictate downloads only the selected default models, then caches them in `~/.cache/huggingface/`. Other cleanup models are one-click downloads from the **Quality** menu.
 
 <details>
 <summary><b>Install from source</b></summary>
@@ -126,14 +126,25 @@ Speak in one language, get output in another. 12 languages supported: English, S
 
 ### Quality Presets
 
+Dictate does not install every LLM up front. First run downloads the recommended default for your Mac; selecting another local Quality preset downloads that model once and reuses it forever. If you already run Ollama, LM Studio, vLLM, or another OpenAI-compatible localhost server, choose **Local API Server** to avoid loading a Dictate-managed cleanup model.
+
 | Preset | Speed | Size | Best for |
 |--------|-------|------|----------|
-| **Qwen2.5 1.5B** | ~250ms | 950MB | Fast and lightweight |
-| **Qwen3.5 2B** | ~280ms | 1.3GB | Best balance (default) — newer, smarter |
-| **Qwen2.5 3B** | ~400ms | 1.8GB | Max accuracy |
+| **Fast — Qwen2.5 1.5B** | ~250ms | 950MB | Lowest RAM, quick cleanup |
+| **Balanced — Qwen3.5 2B** | ~280ms | 1.3GB | Default for most Macs; best speed/quality tradeoff |
+| **Quality — Qwen2.5 3B** | ~400ms | 1.8GB | Slower, best polish |
 | **Local API Server** | varies | 0 | Use your own localhost LLM server (LM Studio, Ollama, etc.) |
 
 Short phrases (15 words or less) skip LLM cleanup entirely for instant output. The app picks the best default model for your chip.
+
+Recommended defaults:
+
+| If you want... | Use |
+|----------------|-----|
+| Smallest install and lowest memory | **Fast** |
+| Best default experience | **Balanced** |
+| Maximum cleanup quality | **Quality** |
+| No bundled LLM download | **Local API Server** |
 
 ### End-to-End Pipeline
 
@@ -152,7 +163,7 @@ With ANE, speech recognition runs on a dedicated chip with its own memory — ze
 Everything accessible from the waveform icon:
 
 - **Writing Style** — Clean Up, Professional, Bullet Points
-- **Quality** — Qwen2.5 1.5B, Qwen3.5 2B, Qwen2.5 3B, or localhost API server
+- **Quality** — Fast, Balanced, Quality, or localhost API server; missing models download when selected
 - **Input Device** — select microphone
 - **Recent** — last 10 transcriptions, click to re-paste
 - **STT Engine** — ANE (default), Qwen3-ASR, Parakeet, or Whisper
