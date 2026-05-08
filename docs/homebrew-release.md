@@ -16,21 +16,32 @@ brew install dictate
 
 ## Formula Checklist
 
-1. Test the formula from the repo:
+1. Tap the repo:
 
    ```bash
-   brew install --HEAD --build-from-source ./Formula/dictate.rb
-   brew test dictate
+   brew tap 0xbrando/dictate https://github.com/0xbrando/dictate
    ```
 
-2. Confirm both commands are available:
+2. Install the release formula:
+
+   ```bash
+   brew install --build-from-source 0xbrando/dictate/dictate
+   ```
+
+3. Run the formula test:
+
+   ```bash
+   brew test 0xbrando/dictate/dictate
+   ```
+
+4. Confirm both commands are available:
 
    ```bash
    dictate --version
-   dictate-stt --help
+   dictate-stt check
    ```
 
-3. Advertise:
+5. Advertise:
 
    ```bash
    brew tap 0xbrando/dictate

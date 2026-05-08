@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-05-08
+
 ### Fixed
 - `dictate config set device_id` now works as advertised, including `auto` to
   follow the macOS default input.
@@ -20,6 +22,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   plan instead of stale 2.4.x values.
 - Added an experimental Homebrew Formula that installs Dictate from source and
   builds the Swift ANE helper.
+- README and Homebrew release notes now document the tested `brew install`
+  source install path.
 
 ## [2.5.1] - 2026-05-08
 

@@ -50,15 +50,16 @@ pip install dictate-mlx[qwen3-asr]
 
 This is still local-only. No API key is required; the extra installs the MLX Qwen3-ASR runtime.
 
-Homebrew support is planned. For now, `pip install dictate-mlx` is the supported
-path while the cask release flow is finalized.
-
-Experimental Homebrew source install:
+Homebrew source install is available for users who prefer Brew. It builds the
+Swift ANE helper and installs the Python app into a Homebrew-managed virtualenv:
 
 ```bash
 brew tap 0xbrando/dictate
-brew install --HEAD dictate
+brew install dictate
 ```
+
+The cask/DMG path is still planned; `pip install dictate-mlx` remains the
+simplest install path.
 
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 

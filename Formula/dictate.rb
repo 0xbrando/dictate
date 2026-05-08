@@ -3,7 +3,8 @@ class Dictate < Formula
 
   desc "Local push-to-talk dictation for Apple Silicon Macs"
   homepage "https://github.com/0xbrando/dictate"
-  version "2.5.1"
+  url "https://github.com/0xbrando/dictate/archive/refs/tags/v2.5.2.tar.gz"
+  sha256 "PLACEHOLDER_UPDATE_AFTER_TAG"
   license "MIT"
 
   head "https://github.com/0xbrando/dictate.git", branch: "main"
@@ -31,7 +32,7 @@ class Dictate < Formula
         dictate
 
       macOS will ask for Microphone and Accessibility permissions.
-      Models download lazily on first use and stay cached locally.
+      The selected local models download on first use and stay cached locally.
     EOS
   end
 end

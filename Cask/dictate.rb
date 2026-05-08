@@ -3,7 +3,7 @@
 # Or submit to homebrew/cask once notable enough
 
 cask "dictate" do
-  version "2.5.1"
+  version "2.5.2"
   sha256 "PLACEHOLDER_UPDATE_ON_RELEASE"
 
   url "https://github.com/0xbrando/dictate/releases/download/v#{version}/Dictate-v#{version}-arm64.dmg"
