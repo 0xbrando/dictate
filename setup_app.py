@@ -8,14 +8,15 @@ Output: dist/Dictate.app
 """
 
 from setuptools import setup
+from pathlib import Path
 
 from dictate import __version__
 
-APP = ["dictate/menubar_main.py"]
+ROOT = Path(__file__).resolve().parent
+APP = [str(ROOT / "dictate" / "menubar_main.py")]
 DATA_FILES = []
 OPTIONS = {
     "argv_emulation": False,  # Must be False for menu bar apps
-    "iconfile": "assets/dictate.icns",
     "plist": {
         "CFBundleName": "Dictate",
         "CFBundleDisplayName": "Dictate",
@@ -73,10 +74,14 @@ OPTIONS = {
     "arch": "arm64",  # Apple Silicon only
 }
 
+ICON_FILE = ROOT / "assets" / "dictate.icns"
+if ICON_FILE.exists():
+    OPTIONS["iconfile"] = str(ICON_FILE)
+
 setup(
     app=APP,
     name="Dictate",
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
-    setup_requires=["py2app"],
+    install_requires=[],
 )

@@ -53,6 +53,13 @@ This is still local-only. No API key is required; the extra installs the MLX Qwe
 Homebrew support is planned. For now, `pip install dictate-mlx` is the supported
 path while the cask release flow is finalized.
 
+Experimental Homebrew source install:
+
+```bash
+brew tap 0xbrando/dictate
+brew install --HEAD dictate
+```
+
 <img src="assets/menubar-icon.png" alt="Dictate in the menu bar">
 
 macOS will prompt for **Accessibility** and **Microphone** permissions on first run. Dictate downloads only the selected default models, then caches them in `~/.cache/huggingface/`. Other cleanup models are one-click downloads from the **Quality** menu.

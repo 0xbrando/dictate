@@ -18,6 +18,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   README, with explicit guidance that only selected models download.
 - Homebrew cask metadata and app bundle versioning now track the current release
   plan instead of stale 2.4.x values.
+- Added an experimental Homebrew Formula that installs Dictate from source and
+  builds the Swift ANE helper.
 
 ## [2.5.1] - 2026-05-08
 

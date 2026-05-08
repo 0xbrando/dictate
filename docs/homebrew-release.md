@@ -1,17 +1,43 @@
 # Homebrew Release Plan
 
-Dictate should support Homebrew, but only after release artifacts are reliable.
-The cask in `Cask/dictate.rb` is a template until a real DMG and SHA are
-published for the current version.
+Dictate supports two possible Homebrew paths:
+
+- `Formula/dictate.rb`: source install that creates a Python virtualenv, builds
+  the Swift ANE helper, and links `dictate` plus `dictate-stt`.
+- `Cask/dictate.rb`: future app-bundle install that needs a reliable DMG release
+  artifact. Keep this as a template until packaging/notarization is ready.
 
 ## Target User Flow
 
 ```bash
 brew tap 0xbrando/dictate
-brew install --cask dictate
+brew install dictate
 ```
 
-## Release Checklist
+## Formula Checklist
+
+1. Test the formula from the repo:
+
+   ```bash
+   brew install --HEAD --build-from-source ./Formula/dictate.rb
+   brew test dictate
+   ```
+
+2. Confirm both commands are available:
+
+   ```bash
+   dictate --version
+   dictate-stt --help
+   ```
+
+3. Advertise:
+
+   ```bash
+   brew tap 0xbrando/dictate
+   brew install dictate
+   ```
+
+## Future Cask Checklist
 
 1. Build the app bundle:
 
@@ -44,14 +70,14 @@ brew install --cask dictate
 7. After the cask works locally, advertise:
 
    ```bash
-   brew tap 0xbrando/dictate
-   brew install --cask dictate
+brew tap 0xbrando/dictate
+brew install --cask dictate
    ```
 
 ## Notes
 
-- Keep `pip install dictate-mlx` as the primary install path until the cask has a
-  real release artifact.
+- The formula can be public before the cask because it builds from source and does
+  not depend on a notarized DMG.
 - The cask should install the full app experience, not a degraded CLI-only build.
 - The Swift ANE helper should be bundled or discoverable by the app before Brew is
   promoted as the recommended install path.
