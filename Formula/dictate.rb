@@ -1,4 +1,6 @@
 class Dictate < Formula
+  include Language::Python::Virtualenv
+
   desc "Local push-to-talk dictation for Apple Silicon Macs"
   homepage "https://github.com/0xbrando/dictate"
   version "2.5.1"
