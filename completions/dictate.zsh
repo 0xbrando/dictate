@@ -6,28 +6,35 @@
 
 _dictate_writing_styles=(
     'clean:Fixes punctuation, keeps your words'
-    'formal:Professional tone and grammar'
+    'professional:Professional tone and grammar'
+    'bullets:Concise bullet points'
+    'email:Polished email'
+    'slack:Concise chat message'
+    'technical:Precise technical wording'
+    'tweet:Short social post'
     'raw:Exact transcription, no LLM processing'
 )
 
 _dictate_quality_values=(
-    'api:External API backend'
-    'speedy:1.5B model (fastest)'
-    'fast:3B model'
-    'balanced:4B model'
-    'quality:8B model (best quality)'
+    'api:Local API backend'
+    'fast:1.5B model'
+    'balanced:2B model'
+    'quality:3B model'
     '0:API backend'
-    '1:1.5B model'
-    '2:3B model'
-    '3:4B model'
-    '4:8B model'
+    '1:Fast 1.5B model'
+    '2:Balanced 2B model'
+    '3:Quality 3B model'
 )
 
 _dictate_stt_values=(
-    'parakeet:Parakeet MLX (English, fastest)'
-    'whisper:Whisper MLX (multilingual)'
-    '0:Parakeet'
-    '1:Whisper'
+    'ane:Apple Neural Engine'
+    'qwen3-asr:Qwen3-ASR'
+    'parakeet:Parakeet MLX'
+    'whisper:Whisper MLX'
+    '0:ANE'
+    '1:Qwen3-ASR'
+    '2:Parakeet'
+    '3:Whisper'
 )
 
 _dictate_languages=(
@@ -85,6 +92,7 @@ _dictate_config_set_value() {
         sound) _describe 'sound preset' _dictate_sound_values ;;
         llm_endpoint) _message 'host:port (e.g., localhost:11434)' ;;
         advanced_mode) _values 'toggle' on off ;;
+        device_id) _values 'input device' auto default system none ;;
     esac
 }
 
@@ -100,6 +108,7 @@ _dictate_config_keys=(
     'sound:Sound feedback preset'
     'llm_endpoint:LLM API endpoint (host\:port)'
     'advanced_mode:Enable advanced mode in menu bar'
+    'device_id:Audio input device id'
 )
 
 _dictate() {

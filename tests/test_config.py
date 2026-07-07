@@ -127,6 +127,18 @@ class TestLLMConfig:
         prompt = c.get_system_prompt()
         assert "professional" in prompt.lower()
 
+    def test_system_prompt_additional_styles(self):
+        for style, expected in {
+            "email": "email",
+            "slack": "chat message",
+            "technical": "technical",
+            "tweet": "social post",
+            "raw": "unchanged",
+        }.items():
+            c = LLMConfig(writing_style=style)
+            prompt = c.get_system_prompt()
+            assert expected in prompt.lower()
+
     def test_system_prompt_translation(self):
         c = LLMConfig(writing_style="clean")
         prompt = c.get_system_prompt(output_language="es")

@@ -41,12 +41,12 @@ class TestBashCompletions:
 
     def test_bash_completion_has_writing_styles(self):
         content = (COMPLETIONS_DIR / "dictate.bash").read_text()
-        for style in ["clean", "formal", "raw"]:
+        for style in ["clean", "professional", "bullets", "email", "slack", "technical", "tweet", "raw"]:
             assert style in content, f"Missing writing style: {style}"
 
     def test_bash_completion_has_quality_aliases(self):
         content = (COMPLETIONS_DIR / "dictate.bash").read_text()
-        for alias in ["api", "speedy", "fast", "balanced", "quality"]:
+        for alias in ["api", "fast", "balanced", "quality"]:
             assert alias in content, f"Missing quality alias: {alias}"
 
     def test_bash_completion_has_languages(self):
@@ -126,7 +126,7 @@ class TestZshCompletions:
 
     def test_zsh_completion_has_writing_styles(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()
-        for style in ["clean", "formal", "raw"]:
+        for style in ["clean", "professional", "bullets", "email", "slack", "technical", "tweet", "raw"]:
             assert style in content, f"Missing writing style: {style}"
 
     def test_zsh_completion_has_config_keys(self):
@@ -148,9 +148,9 @@ class TestZshCompletions:
 
     def test_zsh_completion_has_quality_descriptions(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()
-        assert "1.5B" in content  # speedy
-        assert "3B" in content  # fast
-        assert "8B" in content  # quality
+        assert "1.5B" in content  # fast
+        assert "2B" in content  # balanced
+        assert "3B" in content  # quality
 
     def test_zsh_completion_has_language_descriptions(self):
         content = (COMPLETIONS_DIR / "dictate.zsh").read_text()

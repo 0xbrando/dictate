@@ -555,6 +555,7 @@ class TextCleaner:
         self._model = None
         self._tokenizer = None
         self._last_cleanup_failed = False
+        self._generation_lock = threading.Lock()
 
     def load_model(self) -> None:
         if self._model is not None:
@@ -580,6 +581,11 @@ class TextCleaner:
         if self._model is None or self._tokenizer is None:
             self.load_model()
 
+        if not self._generation_lock.acquire(blocking=False):
+            logger.warning("Local LLM cleanup already in progress, returning raw text")
+            self._last_cleanup_failed = True
+            return text
+
         from mlx_lm import generate
         from mlx_lm.sample_utils import make_sampler
 
@@ -603,21 +609,36 @@ class TextCleaner:
         sampler = make_sampler(temp=self._config.temperature)
 
         result_box: list[str] = []
+        error_box: list[BaseException] = []
 
         def _run_generate() -> None:
-            result_box.append(
-                generate(
-                    self._model,
-                    self._tokenizer,
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    sampler=sampler,
+            try:
+                result_box.append(
+                    generate(
+                        self._model,
+                        self._tokenizer,
+                        prompt=prompt,
+                        max_tokens=max_tokens,
+                        sampler=sampler,
+                    )
                 )
-            )
+            except BaseException as e:
+                error_box.append(e)
+            finally:
+                self._generation_lock.release()
 
         thread = threading.Thread(target=_run_generate, daemon=True)
         thread.start()
         thread.join(timeout=LOCAL_LLM_TIMEOUT_SECONDS)
+
+        if error_box:
+            error = error_box[0]
+            logger.error(
+                "Local LLM cleanup failed, returning raw text",
+                exc_info=(type(error), error, error.__traceback__),
+            )
+            self._last_cleanup_failed = True
+            return text
 
         if not result_box:
             logger.warning(
@@ -628,6 +649,7 @@ class TextCleaner:
 
         result = result_box[0]
         logger.debug("LLM raw result: %r", result[:100] if len(result) > 100 else result)
+        self._last_cleanup_failed = False
         return _postprocess(result.strip())
 
 
@@ -970,8 +992,14 @@ class TranscriptionPipeline:
                 return None
             return raw_text
 
+        if self._llm_config.enabled and self._llm_config.writing_style == "raw":
+            logger.info("Skipped LLM (raw writing style)")
+            if self._is_duplicate(raw_text):
+                return None
+            return raw_text
+
         cleaner = self._pick_cleaner(word_count)
-        route = "local" if cleaner is self._fast_cleaner else "API"
+        route = "API" if isinstance(cleaner, APITextCleaner) else "local"
 
         t2 = time.time()
         cleaned_text = cleaner.cleanup(raw_text, output_language=output_language).strip()

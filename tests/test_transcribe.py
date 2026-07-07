@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from dictate.transcribe import _dedup_transcription, _looks_clean, _postprocess
+from dictate.config import LLMConfig
+from dictate.transcribe import TextCleaner, _dedup_transcription, _looks_clean, _postprocess
 
 
 # ── _postprocess ──────────────────────────────────────────────
@@ -147,3 +148,16 @@ class TestDedupTranscription:
 
     def test_empty_string(self):
         assert _dedup_transcription("") == ""
+
+
+class TestTextCleaner:
+    def test_cleanup_returns_raw_when_generation_busy(self):
+        cleaner = TextCleaner(LLMConfig())
+        cleaner._model = object()
+        cleaner._tokenizer = object()
+        cleaner._generation_lock.acquire()
+        try:
+            assert cleaner.cleanup("hello world") == "hello world"
+            assert cleaner._last_cleanup_failed is True
+        finally:
+            cleaner._generation_lock.release()

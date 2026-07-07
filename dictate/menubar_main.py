@@ -550,10 +550,10 @@ def _run_doctor() -> int:
     from dictate.presets import Preferences, PREFS_FILE
     if PREFS_FILE.exists():
         prefs = Preferences.load()
-        if prefs.llm_endpoint and prefs.llm_endpoint != "localhost:8080":
+        if prefs.is_api_backend:
             import urllib.request
             import urllib.error
-            url = f"http://{prefs.llm_endpoint}/v1/models"
+            url = prefs.validated_api_url.replace("/chat/completions", "/models")
             try:
                 req = urllib.request.urlopen(url, timeout=3)
                 req.close()

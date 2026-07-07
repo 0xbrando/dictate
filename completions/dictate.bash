@@ -8,15 +8,16 @@ _dictate_completions() {
 
     local commands="config stats status doctor devices update"
     local config_subcmds="show set reset path"
-    local config_keys="writing_style quality stt input_language output_language ptt_key command_key llm_cleanup sound llm_endpoint advanced_mode"
-    local writing_styles="clean formal raw"
-    local quality_values="0 1 2 3 4 api speedy fast balanced quality"
-    local stt_values="0 1 parakeet whisper"
+    local config_keys="writing_style quality stt input_language output_language ptt_key command_key llm_cleanup sound llm_endpoint advanced_mode device_id"
+    local writing_styles="clean professional bullets email slack technical tweet raw"
+    local quality_values="0 1 2 3 api fast balanced quality"
+    local stt_values="0 1 2 3 ane qwen3-asr parakeet whisper"
     local languages="auto en pl de fr es it pt nl ja zh ko ru"
     local ptt_keys="ctrl_l ctrl_r cmd_r alt_l alt_r"
     local command_keys="none alt_r alt_l cmd_r ctrl_r"
-    local bool_values="on off"
+    local bool_values="on off true false 1 0"
     local sound_values="0 1 2 3 4 5 6 soft_pop chime warm click marimba simple"
+    local device_values="auto default system none"
 
     case "${cword}" in
         1)
@@ -51,6 +52,7 @@ _dictate_completions() {
                             llm_cleanup) COMPREPLY=( $(compgen -W "${bool_values}" -- "${cur}") ) ;;
                             sound) COMPREPLY=( $(compgen -W "${sound_values}" -- "${cur}") ) ;;
                             advanced_mode) COMPREPLY=( $(compgen -W "${bool_values}" -- "${cur}") ) ;;
+                            device_id) COMPREPLY=( $(compgen -W "${device_values}" -- "${cur}") ) ;;
                         esac
                         return
                     fi

@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from dictate.config import LLMBackend, LLMModel, STTEngine
-from dictate.llm_discovery import discover_llm, get_display_name
+from dictate.llm_discovery import _clean_model_name, discover_llm
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +206,11 @@ WRITING_STYLES: list[tuple[str, str, str]] = [
     ("clean", "Clean Up", "Fixes punctuation, keeps your words"),
     ("professional", "Professional", "Polished tone and grammar"),
     ("bullets", "Bullet Points", "Rewrites as concise bullet points"),
+    ("email", "Email", "Formats as a polished email"),
+    ("slack", "Slack/Chat", "Concise, conversational message"),
+    ("technical", "Technical", "Precise technical wording"),
+    ("tweet", "Tweet", "Short social post"),
+    ("raw", "Raw", "No LLM rewrite"),
 ]
 
 
@@ -340,6 +345,10 @@ class Preferences:
     def _refresh_discovery(self) -> None:
         """Refresh the discovered model name from the endpoint."""
         if self.backend == LLMBackend.API:
+            url = self._endpoint_to_api_url(self.llm_endpoint)
+            if not self._is_safe_api_url(url) and os.environ.get("DICTATE_ALLOW_REMOTE_API") != "1":
+                self._discovered_model = None
+                return
             result = discover_llm(self.llm_endpoint)
             if result.is_available:
                 self._discovered_model = result.name
@@ -377,7 +386,9 @@ class Preferences:
         """
         if self.backend != LLMBackend.API:
             return ""
-        return get_display_name(self.llm_endpoint)
+        if not self._discovered_model:
+            return "No local model found"
+        return _clean_model_name(self._discovered_model)
 
     @property
     def stt_engine(self) -> STTEngine:
@@ -414,6 +425,31 @@ class Preferences:
         except Exception:
             return False
 
+    @staticmethod
+    def _endpoint_to_api_url(endpoint: str) -> str:
+        """Normalize a user endpoint into an OpenAI-compatible chat URL."""
+        fallback = "http://localhost:8005/v1/chat/completions"
+        endpoint = endpoint.strip()
+        if not endpoint:
+            return fallback
+
+        if "://" in endpoint:
+            parsed = urlparse(endpoint)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                return fallback
+            scheme = parsed.scheme
+            netloc = parsed.netloc
+        else:
+            endpoint = endpoint.split("/")[0]
+            parsed = urlparse(f"//{endpoint}")
+            if not parsed.netloc:
+                return fallback
+            host = parsed.hostname or ""
+            scheme = "http" if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") else "https"
+            netloc = parsed.netloc
+
+        return f"{scheme}://{netloc}/v1/chat/completions"
+
     @property
     def validated_api_url(self) -> str:
         """Get the API URL to use.
@@ -421,26 +457,17 @@ class Preferences:
         For API backend, uses the endpoint. For local, uses the legacy api_url.
         """
         if self.backend == LLMBackend.API:
-            # Use endpoint-based URL
-            endpoint = self.llm_endpoint.strip()
-            # Remove protocol prefix if present
-            if endpoint.startswith("http://"):
-                endpoint = endpoint[7:]
-            elif endpoint.startswith("https://"):
-                endpoint = endpoint[8:]
-            # Remove trailing slash and path
-            endpoint = endpoint.split("/")[0]
-            url = f"http://{endpoint}/v1/chat/completions"
+            url = self._endpoint_to_api_url(self.llm_endpoint)
             # Apply same localhost safety check as legacy path
             if not self._is_safe_api_url(url):
                 if os.environ.get("DICTATE_ALLOW_REMOTE_API") == "1":
                     logger.warning(
-                        "Remote API endpoint allowed via DICTATE_ALLOW_REMOTE_API: %s", endpoint
+                        "Remote API endpoint allowed via DICTATE_ALLOW_REMOTE_API: %s", url
                     )
                 else:
                     logger.warning(
                         "Blocked non-localhost endpoint: %s (set DICTATE_ALLOW_REMOTE_API=1 to override)",
-                        endpoint,
+                        url,
                     )
                     return "http://localhost:8005/v1/chat/completions"
             return url

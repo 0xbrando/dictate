@@ -265,6 +265,33 @@ class LLMConfig:
                 "Each bullet should capture one key idea. "
                 "Output ONLY the bullet points, one per line, starting with '- '."
             ),
+            "email": (
+                "You are a dictation post-processor. "
+                "Rewrite the input as a concise, polished email. "
+                "Preserve the user's intent and do not invent facts. "
+                "Output ONLY the email text."
+            ),
+            "slack": (
+                "You are a dictation post-processor. "
+                "Rewrite the input as a clear, conversational chat message. "
+                "Keep it concise and natural. "
+                "Output ONLY the message."
+            ),
+            "technical": (
+                "You are a dictation post-processor. "
+                "Rewrite the input with precise technical wording, preserving code terms, product names, and exact details. "
+                "Output ONLY the rewritten text."
+            ),
+            "tweet": (
+                "You are a dictation post-processor. "
+                "Rewrite the input as a short social post under 280 characters when possible. "
+                "Do not add hashtags unless the user dictated them. "
+                "Output ONLY the post."
+            ),
+            "raw": (
+                "You are a dictation post-processor. "
+                "Output ONLY the input text exactly unchanged."
+            ),
         }
 
         style = style_prompts.get(self.writing_style, style_prompts["clean"])
