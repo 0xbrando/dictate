@@ -35,9 +35,19 @@ class TestWritingStyles:
         assert "professional" in keys
         assert "bullets" in keys
 
-    def test_has_3_styles(self):
-        """We have exactly 3 writing styles (simplified)."""
-        assert len(WRITING_STYLES) == 3
+    def test_has_expected_styles(self):
+        """WRITING_STYLES covers all CLI-advertised styles."""
+        keys = [k for k, _, _ in WRITING_STYLES]
+        assert keys == [
+            "clean",
+            "professional",
+            "bullets",
+            "email",
+            "slack",
+            "technical",
+            "tweet",
+            "raw",
+        ]
 
 
 class TestSystemPrompts:

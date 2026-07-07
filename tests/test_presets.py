@@ -77,6 +77,10 @@ class TestPresetData:
         keys = [k for k, _, _ in WRITING_STYLES]
         assert "bullets" in keys
 
+    def test_writing_styles_match_cli_claims(self):
+        keys = {k for k, _, _ in WRITING_STYLES}
+        assert {"clean", "professional", "bullets", "email", "slack", "technical", "tweet", "raw"} <= keys
+
 
 # ── Hardware detection ─────────────────────────────────────────
 

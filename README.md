@@ -125,6 +125,11 @@ Dictate auto-switches engines based on language: ANE/Parakeet for European langu
 | **Clean Up** | Fixes punctuation and capitalization — keeps your words |
 | **Professional** | Polished tone and grammar |
 | **Bullet Points** | Rewrites as concise bullet points |
+| **Email** | Formats as a concise, polished email |
+| **Slack/Chat** | Clear conversational message |
+| **Technical** | Precise technical wording |
+| **Tweet** | Short social post |
+| **Raw** | Exact transcription with no LLM rewrite |
 
 Toggle LLM cleanup off from the menu bar for raw transcription output.
 
@@ -292,7 +297,7 @@ dictate -V           # Show version
 
 | Key | Values |
 |-----|--------|
-| `writing_style` | clean, professional, bullets |
+| `writing_style` | clean, professional, bullets, email, slack, technical, tweet, raw |
 | `quality` | api, fast, balanced, quality |
 | `stt` | ane, qwen3-asr, parakeet, whisper |
 | `input_language` | auto, en, ja, de, fr, es, ... |
@@ -301,6 +306,7 @@ dictate -V           # Show version
 | `llm_cleanup` | on, off |
 | `sound` | soft_pop, chime, warm, click, marimba, simple |
 | `llm_endpoint` | host:port (for API backend) |
+| `device_id` | device number, or auto |
 
 ## Shell Completions
 

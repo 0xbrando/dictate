@@ -170,6 +170,21 @@ class TestRefreshDiscovery:
         prefs._refresh_discovery()
         assert prefs._discovered_model is None
 
+    def test_refresh_discovery_remote_blocked_without_opt_in(self, monkeypatch):
+        """Remote endpoint discovery should follow the remote API opt-in policy."""
+        import dictate.presets as presets
+
+        monkeypatch.delenv("DICTATE_ALLOW_REMOTE_API", raising=False)
+        prefs = presets.Preferences(quality_preset=0, llm_endpoint="example.com:11434")
+        monkeypatch.setattr(
+            presets,
+            "discover_llm",
+            lambda endpoint: pytest.fail("remote endpoint should not be probed"),
+        )
+
+        prefs._refresh_discovery()
+        assert prefs._discovered_model is None
+
 
 class TestUpdateEndpoint:
     """Cover update_endpoint() method (lines 282-283)."""
@@ -213,14 +228,24 @@ class TestDiscoveredModelDisplay:
     """Cover discovered_model_display property (lines 307-309)."""
 
     def test_discovered_model_display_api_backend(self, monkeypatch):
-        """Lines 307-309: Returns display name when backend is API."""
+        """Returns the cached display name when backend is API."""
         import dictate.presets as presets
 
         prefs = presets.Preferences(quality_preset=0, llm_endpoint="localhost:11434")
-        monkeypatch.setattr(presets, "get_display_name", lambda endpoint: "qwen3-coder via localhost:11434")
+        prefs._discovered_model = "qwen3-coder:30b"
+        monkeypatch.setattr(presets, "_clean_model_name", lambda name: "Qwen3 Coder")
 
         result = prefs.discovered_model_display
-        assert result == "qwen3-coder via localhost:11434"
+        assert result == "Qwen3 Coder"
+
+    def test_discovered_model_display_api_backend_no_model(self):
+        """Unavailable API backend returns a stable label without probing the network."""
+        import dictate.presets as presets
+
+        prefs = presets.Preferences(quality_preset=0, llm_endpoint="localhost:11434")
+        prefs._discovered_model = None
+
+        assert prefs.discovered_model_display == "No local model found"
 
     def test_discovered_model_display_non_api(self):
         """Returns empty string for non-API backend."""
@@ -316,12 +341,12 @@ class TestValidatedApiUrl:
         assert result == "http://localhost:11434/v1/chat/completions"
 
     def test_validated_api_url_protocol_stripping_https(self, monkeypatch):
-        """Strip https:// prefix from endpoint."""
+        """Preserve explicit https:// endpoints."""
         import dictate.presets as presets
 
         prefs = presets.Preferences(quality_preset=0, llm_endpoint="https://localhost:11434")
         result = prefs.validated_api_url
-        assert result == "http://localhost:11434/v1/chat/completions"
+        assert result == "https://localhost:11434/v1/chat/completions"
 
     def test_validated_api_url_remote_blocked(self, monkeypatch):
         """Remote endpoint blocked without env var."""
@@ -342,6 +367,16 @@ class TestValidatedApiUrl:
         monkeypatch.setenv("DICTATE_ALLOW_REMOTE_API", "1")
 
         prefs = presets.Preferences(quality_preset=0, llm_endpoint="example.com:11434")
+        result = prefs.validated_api_url
+        assert result == "https://example.com:11434/v1/chat/completions"
+
+    def test_validated_api_url_remote_explicit_http_allowed_via_env(self, monkeypatch):
+        """Explicit remote http is only preserved after the remote opt-in."""
+        import dictate.presets as presets
+
+        monkeypatch.setenv("DICTATE_ALLOW_REMOTE_API", "1")
+
+        prefs = presets.Preferences(quality_preset=0, llm_endpoint="http://example.com:11434")
         result = prefs.validated_api_url
         assert result == "http://example.com:11434/v1/chat/completions"
 

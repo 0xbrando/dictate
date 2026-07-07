@@ -23,7 +23,7 @@ All PRs should maintain the existing test coverage (~97%). New features should i
 ## Code Style
 
 - Python 3.11+
-- Black formatter, Ruff linter
+- Ruff linter/formatter
 - Type hints encouraged
 - Docstrings for public methods
 
@@ -41,12 +41,12 @@ Check the [issues page](https://github.com/0xbrando/dictate/issues) for open ite
 
 ```
 dictate/
-├── main.py          # Entry point, daemon management
+├── menubar_main.py  # CLI entry point, daemon management
 ├── menubar.py       # Menu bar UI (rumps)
-├── transcribe.py    # STT pipeline (Whisper + Parakeet)
-├── llm.py           # LLM text cleanup
+├── transcribe.py    # STT pipeline and LLM text cleanup
+├── presets.py       # Menu presets and preference persistence
 ├── audio.py         # Audio capture, VAD
-└── config.py        # Preferences, env vars
+└── config.py        # Runtime config and env vars
 ```
 
 ## PR Guidelines
