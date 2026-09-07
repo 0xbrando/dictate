@@ -44,7 +44,7 @@ That's it. Dictate launches in the background and appears in your menu bar. Clos
 For Qwen3-ASR support (30 languages plus 22 Chinese dialects):
 
 ```bash
-pip install dictate-mlx[qwen3-asr]
+python -m pip install --upgrade "dictate-mlx[qwen3-asr]"
 ```
 
 This is still local-only. No API key is required; the extra installs the MLX Qwen3-ASR runtime.
