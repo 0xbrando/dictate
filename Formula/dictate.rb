@@ -18,10 +18,11 @@ class Dictate < Formula
     system "swift", "build", "-c", "release", "--disable-sandbox", "--package-path", "swift-stt"
     bin.install "swift-stt/.build/release/dictate-stt"
 
-    virtualenv_create(libexec, "python3.12", system_site_packages: false)
+    python = Formula["python@3.12"].opt_bin/"python3.12"
+    virtualenv_create(libexec, python, system_site_packages: false)
     # This third-party tap uses PyPI wheels for the ML stack. Homebrew's
     # pip_install_and_link passes --no-deps and leaves the app unable to start.
-    system "python3.12", "-m", "pip", "--python=#{libexec}/bin/python", "install",
+    system python, "-m", "pip", "--python=#{libexec}/bin/python", "install",
            "--disable-pip-version-check", buildpath
     bin.install_symlink libexec/"bin/dictate"
   end
