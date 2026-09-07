@@ -18,19 +18,26 @@ class Dictate < Formula
     system "swift", "build", "-c", "release", "--disable-sandbox", "--package-path", "swift-stt"
     bin.install "swift-stt/.build/release/dictate-stt"
 
+    (libexec/"src").install "dictate", "pyproject.toml", "README.md", "LICENSE", "LICENSES.md"
+    (bin/"dictate").write_env_script libexec/"venv/bin/dictate", {}
+  end
+
+  def post_install
+    # Install upstream wheels after Homebrew's Mach-O relocation pass. Rewriting
+    # their dylib IDs can fail (for example, tiktoken has no spare header space).
+    venv = libexec/"venv"
     python = Formula["python@3.12"].opt_bin/"python3.12"
-    virtualenv_create(libexec, python, system_site_packages: false)
+    virtualenv_create(venv, python, system_site_packages: false)
     # This third-party tap uses PyPI wheels for the ML stack. Homebrew's
     # pip_install_and_link passes --no-deps and leaves the app unable to start.
-    system python, "-m", "pip", "--python=#{libexec}/bin/python", "install",
-           "--disable-pip-version-check", buildpath
-    bin.install_symlink libexec/"bin/dictate"
+    system python, "-m", "pip", "--python=#{venv}/bin/python", "install",
+           "--disable-pip-version-check", libexec/"src"
   end
 
   test do
     assert_match(/^dictate \d+\.\d+\.\d+$/, shell_output("#{bin}/dictate --version").strip)
     assert_match '"available":true', shell_output("#{bin}/dictate-stt check").delete(" ")
-    system libexec/"bin/python", "-c",
+    system libexec/"venv/bin/python", "-c",
            "import mlx.core, mlx_whisper, mlx_lm, parakeet_mlx, sounddevice, scipy, pynput, pyperclip, rumps, dotenv"
   end
 
