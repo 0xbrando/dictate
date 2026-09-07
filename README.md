@@ -33,7 +33,9 @@ Dictate can use your Mac’s Neural Engine for speech recognition.
 ## Install
 
 ```bash
-pip install dictate-mlx
+python3 -m venv ~/.venvs/dictate
+source ~/.venvs/dictate/bin/activate
+python -m pip install --upgrade dictate-mlx
 dictate
 ```
 
@@ -51,7 +53,7 @@ Homebrew source install is available for users who prefer Brew. It builds the
 Swift ANE helper and installs the Python app into a Homebrew-managed virtualenv:
 
 ```bash
-brew tap 0xbrando/dictate
+brew tap 0xbrando/dictate https://github.com/0xbrando/dictate
 brew install dictate
 ```
 

@@ -9,21 +9,28 @@ class Dictate < Formula
 
   head "https://github.com/0xbrando/dictate.git", branch: "main"
 
-  depends_on "python@3.11"
-  depends_on xcode: ["15.0", :build]
+  depends_on "python@3.12"
+  depends_on xcode: ["16.0", :build]
   depends_on arch: :arm64
+  depends_on macos: :sonoma
 
   def install
     system "swift", "build", "-c", "release", "--disable-sandbox", "--package-path", "swift-stt"
     bin.install "swift-stt/.build/release/dictate-stt"
 
-    venv = virtualenv_create(libexec, "python3.11")
-    venv.pip_install_and_link buildpath
+    virtualenv_create(libexec, "python3.12", system_site_packages: false)
+    # This third-party tap uses PyPI wheels for the ML stack. Homebrew's
+    # pip_install_and_link passes --no-deps and leaves the app unable to start.
+    system "python3.12", "-m", "pip", "--python=#{libexec}/bin/python", "install",
+           "--disable-pip-version-check", buildpath
+    bin.install_symlink libexec/"bin/dictate"
   end
 
   test do
     assert_match(/^dictate \d+\.\d+\.\d+$/, shell_output("#{bin}/dictate --version").strip)
     assert_match '"available":true', shell_output("#{bin}/dictate-stt check").delete(" ")
+    system libexec/"bin/python", "-c",
+           "import mlx.core, mlx_whisper, mlx_lm, parakeet_mlx, sounddevice, scipy, pynput, pyperclip, rumps, dotenv"
   end
 
   def caveats
@@ -31,7 +38,8 @@ class Dictate < Formula
       Dictate runs as a macOS menu bar app:
         dictate
 
-      macOS will ask for Microphone and Accessibility permissions.
+      Allow your terminal app in System Settings > Privacy & Security >
+      Microphone and Accessibility, then quit and reopen Dictate.
       The selected local models download on first use and stay cached locally.
     EOS
   end
