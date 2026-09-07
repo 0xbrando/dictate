@@ -33,7 +33,9 @@ Dictate can use your Mac’s Neural Engine for speech recognition.
 ## Install
 
 ```bash
-pip install dictate-mlx
+python3 -m venv ~/.venvs/dictate
+source ~/.venvs/dictate/bin/activate
+python -m pip install --upgrade dictate-mlx
 dictate
 ```
 
@@ -42,7 +44,7 @@ That's it. Dictate launches in the background and appears in your menu bar. Clos
 For Qwen3-ASR support (30 languages plus 22 Chinese dialects):
 
 ```bash
-pip install dictate-mlx[qwen3-asr]
+python -m pip install --upgrade "dictate-mlx[qwen3-asr]"
 ```
 
 This is still local-only. No API key is required; the extra installs the MLX Qwen3-ASR runtime.
@@ -51,7 +53,7 @@ Homebrew source install is available for users who prefer Brew. It builds the
 Swift ANE helper and installs the Python app into a Homebrew-managed virtualenv:
 
 ```bash
-brew tap 0xbrando/dictate
+brew tap 0xbrando/dictate https://github.com/0xbrando/dictate
 brew install dictate
 ```
 
