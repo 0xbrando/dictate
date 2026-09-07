@@ -3,8 +3,8 @@ class Dictate < Formula
 
   desc "Local push-to-talk dictation for Apple Silicon Macs"
   homepage "https://github.com/0xbrando/dictate"
-  url "https://github.com/0xbrando/dictate/archive/refs/tags/v2.5.3.tar.gz"
-  sha256 "d16bb779b411e688159cbff95c7d85a22729e193eacb51ba055ca0f37ce319b0"
+  url "https://github.com/0xbrando/dictate/archive/refs/tags/v2.5.4.tar.gz"
+  sha256 "74bffbf917c81fb04b85ae442c597de00bf989e287437dfd8bd595dbd7574979"
   license "MIT"
 
   head "https://github.com/0xbrando/dictate.git", branch: "main"
