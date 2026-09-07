@@ -9,6 +9,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
+from dictate.api_http import api_urlopen
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_ENDPOINT = "localhost:11434"
@@ -49,7 +51,7 @@ def _try_openai_models(endpoint: str) -> DiscoveredModel | None:
     try:
         url = _endpoint_url(endpoint, "/v1/models")
         req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+        with api_urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
             data = json.loads(resp.read())
 
         # Extract model name from response
@@ -87,7 +89,7 @@ def _try_ollama_tags(endpoint: str) -> DiscoveredModel | None:
     try:
         url = _endpoint_url(endpoint, "/api/tags")
         req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+        with api_urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
             data = json.loads(resp.read())
 
         # Ollama returns { "models": [ { "name": "...", ... }, ... ] }

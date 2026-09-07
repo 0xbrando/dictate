@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
     from dictate.config import LLMConfig, WhisperConfig
 
+from dictate.api_http import api_urlopen
+
 logger = logging.getLogger(__name__)
 
 API_TIMEOUT_SECONDS = 15
@@ -148,7 +150,7 @@ def _dedup_transcription(text: str) -> str:
     half = n // 2
     first_half = " ".join(words[:half])
     second_half = " ".join(words[half : half * 2])
-    if first_half.lower() == second_half.lower():
+    if n % 2 == 0 and first_half.lower() == second_half.lower():
         logger.info("Deduped repeated transcription: %d words → %d", n, half)
         return " ".join(words[:half])
 
@@ -223,10 +225,12 @@ class Qwen3ASRTranscriber:
     @staticmethod
     def is_available() -> bool:
         """Check if mlx-audio is installed with STT support."""
+        import importlib.util
+
+        # Menus must not initialize Metal or import the ML stack on the UI thread.
         try:
-            from mlx_audio.stt.utils import load  # noqa: F401
-            return True
-        except ImportError:
+            return importlib.util.find_spec("mlx_audio") is not None
+        except (ImportError, ValueError):
             return False
 
     def load_model(self) -> None:
@@ -376,7 +380,8 @@ class ANETranscriber:
                 [self._binary, "serve"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                # Inherit stderr so model/download logs cannot fill an unread pipe.
+                stderr=None,
                 text=True,
                 bufsize=1,
             )
@@ -384,10 +389,9 @@ class ANETranscriber:
             if not self._server.stdout:
                 raise RuntimeError("dictate-stt serve did not expose stdout")
 
-            line = self._readline_with_timeout(self._server.stdout, 120)
+            line = self._readline_with_timeout(self._server.stdout, 600)
             if not line:
-                stderr = self._server.stderr.read() if self._server.stderr else ""
-                raise RuntimeError(f"dictate-stt serve exited early: {stderr.strip()}")
+                raise RuntimeError("dictate-stt serve exited early; see helper logs")
 
             ready = json.loads(line)
             if not ready.get("ready"):
@@ -435,6 +439,9 @@ class ANETranscriber:
                 line = self._readline_with_timeout(self._server.stdout, 30)
             except subprocess.TimeoutExpired:
                 logger.error("ANE transcription timed out after 30s")
+                # Discard the outstanding response before accepting another clip.
+                self._stop_server()
+                self._model_loaded = False
                 return ""
             except (BrokenPipeError, OSError, RuntimeError) as e:
                 logger.error("ANE helper failed: %s", e)
@@ -452,7 +459,9 @@ class ANETranscriber:
                 return _dedup_transcription(str(text).strip())
             except json.JSONDecodeError as e:
                 logger.error("Failed to parse ANE output: %s", e)
-                return line.strip()
+                self._stop_server()
+                self._model_loaded = False
+                return ""
 
     def __del__(self) -> None:
         self._stop_server()
@@ -571,7 +580,7 @@ class TextCleaner:
         from mlx_lm import load
 
         print(f"   LLM: {self._config.model}...", end=" ", flush=True)
-        self._model, self._tokenizer = load(self._config.model)
+        self._model, self._tokenizer = load(self._config.model, tokenizer_config={"trust_remote_code": False})
         print("✓")
 
     def cleanup(self, text: str, output_language: str | None = None) -> str:
@@ -581,8 +590,7 @@ class TextCleaner:
         if self._model is None or self._tokenizer is None:
             self.load_model()
 
-        if not self._generation_lock.acquire(blocking=False):
-            logger.warning("Local LLM cleanup already in progress, returning raw text")
+        if self._generation_lock.locked():
             self._last_cleanup_failed = True
             return text
 
@@ -590,18 +598,17 @@ class TextCleaner:
         from mlx_lm.sample_utils import make_sampler
 
         system_prompt = self._config.get_system_prompt(output_language)
-        # Qwen3/Qwen3.5 reasoning models burn max_tokens on <think> blocks before
-        # producing output. /no_think disables this for simple cleanup tasks.
-        model_lower = self._config.model.lower()
-        user_content = f"/no_think\n{text}" if ("qwen3" in model_lower or "qwen3.5" in model_lower) else text
+        # Disable reasoning in the template, including Qwen3.5 which does not
+        # support the older /no_think soft switch.
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
+            {"role": "user", "content": text},
         ]
         prompt = self._tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True,
+            enable_thinking=False,
         )
 
         input_words = len(text.split())
@@ -627,8 +634,17 @@ class TextCleaner:
             finally:
                 self._generation_lock.release()
 
+        if not self._generation_lock.acquire(blocking=False):
+            logger.warning("Local LLM cleanup already in progress, returning raw text")
+            self._last_cleanup_failed = True
+            return text
+
         thread = threading.Thread(target=_run_generate, daemon=True)
-        thread.start()
+        try:
+            thread.start()
+        except BaseException:
+            self._generation_lock.release()
+            raise
         thread.join(timeout=LOCAL_LLM_TIMEOUT_SECONDS)
 
         if error_box:
@@ -665,7 +681,7 @@ class APITextCleaner:
         url = self._config.api_url.replace("/chat/completions", "").rstrip("/")
         try:
             req = urllib.request.Request(f"{url}/models", method="GET")
-            with urllib.request.urlopen(req, timeout=3):
+            with api_urlopen(req, timeout=3):
                 pass
             print(f"   API: {self._config.api_url} ✓")
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
@@ -702,7 +718,7 @@ class APITextCleaner:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+            with api_urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
                 result = json.loads(resp.read())
             content = result["choices"][0]["message"]["content"].strip()
             return _postprocess(content)
@@ -712,7 +728,7 @@ class APITextCleaner:
 
             time.sleep(0.5)
             try:
-                with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
+                with api_urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
                     result = json.loads(resp.read())
                 content = result["choices"][0]["message"]["content"].strip()
                 return _postprocess(content)
@@ -791,7 +807,9 @@ class TranscriptionPipeline:
         whisper_config: "WhisperConfig",
         llm_config: "LLMConfig",
     ) -> None:
-        from dictate.config import LLMBackend, STTEngine
+        from dataclasses import replace
+
+        from dictate.config import PARAKEET_V3_MODEL, WHISPER_MODEL, LLMBackend, STTEngine
 
         if whisper_config.engine == STTEngine.QWEN3_ASR:
             if Qwen3ASRTranscriber.is_available():
@@ -799,14 +817,18 @@ class TranscriptionPipeline:
                     Qwen3ASRTranscriber(whisper_config)
                 )
             else:
-                logger.warning("mlx-audio not installed, falling back to Parakeet MLX")
-                self._whisper = ParakeetTranscriber(whisper_config)
+                logger.warning("mlx-audio not installed, falling back to multilingual Whisper")
+                self._whisper = WhisperTranscriber(replace(
+                    whisper_config, engine=STTEngine.WHISPER, model=WHISPER_MODEL,
+                ))
         elif whisper_config.engine == STTEngine.ANE:
             if ANETranscriber.is_available():
                 self._whisper = ANETranscriber(whisper_config)
             else:
                 logger.warning("ANE binary not found, falling back to Parakeet MLX")
-                self._whisper = ParakeetTranscriber(whisper_config)
+                self._whisper = ParakeetTranscriber(replace(
+                    whisper_config, engine=STTEngine.PARAKEET, model=PARAKEET_V3_MODEL,
+                ))
         elif whisper_config.engine == STTEngine.PARAKEET:
             self._whisper = ParakeetTranscriber(whisper_config)
         else:
@@ -827,7 +849,8 @@ class TranscriptionPipeline:
         """Create a fast local cleaner for smart routing (API mode only)."""
         from dictate.config import LLMBackend, LLMConfig, LLMModel, is_model_cached
 
-        if llm_config.backend != LLMBackend.API:
+        if (not llm_config.enabled or llm_config.writing_style == "raw"
+                or llm_config.backend != LLMBackend.API):
             return None
 
         # Pick the fastest cached local model (prefer instruction models over reasoning)
@@ -907,6 +930,9 @@ class TranscriptionPipeline:
             label = "Checking ANE binary..." if is_ane else f"Loading {engine_name}..."
             on_progress(label)
         self._whisper.load_model()
+
+        if not self._llm_config.enabled or self._llm_config.writing_style == "raw":
+            return
 
         # Load fast cleaner if configured
         if self._fast_cleaner:

@@ -393,7 +393,7 @@ class TestTextCleaner:
         with patch.dict(sys.modules, {"mlx_lm": mock_mlx, "mlx_lm.sample_utils": mock_su}):
             c = TextCleaner(config)
             c.load_model()
-            mock_mlx.load.assert_called_once_with(config.model)
+            mock_mlx.load.assert_called_once_with(config.model, tokenizer_config={"trust_remote_code": False})
             assert c._model is not None
             assert c._tokenizer is not None
             captured = capsys.readouterr()
@@ -495,7 +495,7 @@ class TestAPITextCleaner:
         c = APITextCleaner(config)
         assert c._last_cleanup_failed is False
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_load_model_success(self, mock_urlopen, config, capsys):
         mock_resp = MagicMock()
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
@@ -507,21 +507,21 @@ class TestAPITextCleaner:
         captured = capsys.readouterr()
         assert "API" in captured.out and "✓" in captured.out
 
-    @patch("dictate.transcribe.urllib.request.urlopen", side_effect=TimeoutError("timeout"))
+    @patch("dictate.transcribe.api_urlopen", side_effect=TimeoutError("timeout"))
     def test_load_model_timeout(self, mock_urlopen, config, capsys):
         c = APITextCleaner(config)
         c.load_model()
         captured = capsys.readouterr()
         assert "will retry" in captured.out
 
-    @patch("dictate.transcribe.urllib.request.urlopen", side_effect=Exception("unknown"))
+    @patch("dictate.transcribe.api_urlopen", side_effect=Exception("unknown"))
     def test_load_model_unknown_error(self, mock_urlopen, config, capsys):
         c = APITextCleaner(config)
         c.load_model()
         captured = capsys.readouterr()
         assert "error" in captured.out
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_success(self, mock_urlopen, config):
         mock_urlopen.return_value = _make_http_response(
             {"choices": [{"message": {"content": "Hello."}}]}
@@ -535,7 +535,7 @@ class TestAPITextCleaner:
         c = APITextCleaner(config)
         assert c.cleanup("hello") == "hello"
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_with_language(self, mock_urlopen, config):
         mock_urlopen.return_value = _make_http_response(
             {"choices": [{"message": {"content": "Bonjour."}}]}
@@ -547,7 +547,7 @@ class TestAPITextCleaner:
         payload = json.loads(req.data)
         assert "French" in payload["messages"][0]["content"]
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_retry_on_network_error(self, mock_urlopen, config):
         import urllib.error
         success = _make_http_response({"choices": [{"message": {"content": "OK."}}]})
@@ -557,7 +557,7 @@ class TestAPITextCleaner:
         assert c.cleanup("test") == "OK."
         assert mock_urlopen.call_count == 2
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_both_fail_returns_raw(self, mock_urlopen, config):
         import urllib.error
         mock_urlopen.side_effect = urllib.error.URLError("down")
@@ -566,7 +566,7 @@ class TestAPITextCleaner:
         assert c.cleanup("raw text") == "raw text"
         assert c._last_cleanup_failed is True
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_json_decode_error(self, mock_urlopen, config):
         resp = MagicMock()
         resp.read.return_value = b"not json"
@@ -578,21 +578,21 @@ class TestAPITextCleaner:
         assert c.cleanup("raw") == "raw"
         assert c._last_cleanup_failed is True
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_missing_choices_key(self, mock_urlopen, config):
         mock_urlopen.return_value = _make_http_response({"result": "wrong"})
         c = APITextCleaner(config)
         assert c.cleanup("raw") == "raw"
         assert c._last_cleanup_failed is True
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_unexpected_exception(self, mock_urlopen, config):
         mock_urlopen.side_effect = RuntimeError("boom")
         c = APITextCleaner(config)
         assert c.cleanup("raw") == "raw"
         assert c._last_cleanup_failed is True
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_retry_json_error(self, mock_urlopen, config):
         import urllib.error
         bad_resp = MagicMock()
@@ -605,7 +605,7 @@ class TestAPITextCleaner:
         assert c.cleanup("raw") == "raw"
         assert c._last_cleanup_failed is True
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_postprocesses(self, mock_urlopen, config):
         mock_urlopen.return_value = _make_http_response(
             {"choices": [{"message": {"content": "Sure! Hello."}}]}
@@ -613,14 +613,14 @@ class TestAPITextCleaner:
         c = APITextCleaner(config)
         assert c.cleanup("hello") == "Hello."
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_timeout_error_retries(self, mock_urlopen, config):
         success = _make_http_response({"choices": [{"message": {"content": "OK."}}]})
         mock_urlopen.side_effect = [TimeoutError("timed out"), success]
         c = APITextCleaner(config)
         assert c.cleanup("test") == "OK."
 
-    @patch("dictate.transcribe.urllib.request.urlopen")
+    @patch("dictate.transcribe.api_urlopen")
     def test_cleanup_connection_error_retries(self, mock_urlopen, config):
         success = _make_http_response({"choices": [{"message": {"content": "OK."}}]})
         mock_urlopen.side_effect = [ConnectionError("refused"), success]

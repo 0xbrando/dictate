@@ -29,10 +29,10 @@ class TestDedupOffByOne:
         assert result == "a b c d e f g h i"
 
     def test_five_words_even_half_matches(self):
-        """5 words where even check catches the repeat."""
-        # "go home go home extra" → half=2, even: "go home" vs "go home" → MATCH
+        """A trailing word must not be discarded as part of a duplicate."""
+        # The final word makes this a partial repetition.
         result = _dedup_transcription("go home go home extra")
-        assert result == "go home"
+        assert result == "go home go home extra"
 
     def test_six_words_exact_repeat(self):
         """6 words, clean even split catches it."""
@@ -45,9 +45,9 @@ class TestDedupOffByOne:
         assert result == "hello world hello test world"
 
     def test_exactly_five_words_all_same(self):
-        """All same word, 5 count → even check catches it."""
+        """Odd repetitions must preserve the complete utterance."""
         result = _dedup_transcription("yes yes yes yes yes")
-        assert result == "yes yes"
+        assert result == "yes yes yes yes yes"
 
     def test_long_odd_no_repeat(self):
         """11 words, exercises the loop with a longer odd input."""

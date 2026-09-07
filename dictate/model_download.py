@@ -184,25 +184,24 @@ def download_model(
         # Download with progress tracking via a custom wrapper
         # Since snapshot_download doesn't have a direct byte callback,
         # we'll use the tqdm_class approach
-        class ProgressTqdm:
+        from tqdm.auto import tqdm
+
+        class ProgressTqdm(tqdm):
+            """Keep tqdm's full protocol, including HF/Xet total/n/refresh."""
+
             def __init__(inner_self, *args, **kwargs):
-                inner_self.wrapper = TqdmProgressWrapper(tracker)
-                
+                kwargs["disable"] = True
+                super().__init__(*args, **kwargs)
+
             def update(inner_self, n: int = 1):
-                inner_self.wrapper.update(n)
-                
-            def close(inner_self):
-                inner_self.wrapper.close()
-                
-            def set_description(inner_self, desc: str):
-                pass
-                
-            def __enter__(inner_self):
-                return inner_self
-                
-            def __exit__(inner_self, *args):
-                inner_self.close()
-        
+                inner_self.n += n
+                if inner_self.total and progress_callback:
+                    # Closing one file is not completion of the whole model.
+                    percent = min(99.0, 100.0 * inner_self.n / inner_self.total)
+                    if percent > tracker._last_reported_percent:
+                        tracker._last_reported_percent = percent
+                        progress_callback(percent)
+
         try:
             # Use HF token from env if available (for gated/private models)
             token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")

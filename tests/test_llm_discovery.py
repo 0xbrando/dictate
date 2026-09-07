@@ -67,7 +67,7 @@ class TestTryOpenAIModels:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_openai_models("localhost:11434")
 
         assert result is not None
@@ -83,7 +83,7 @@ class TestTryOpenAIModels:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_openai_models("localhost:1234")
 
         assert result is not None
@@ -95,7 +95,7 @@ class TestTryOpenAIModels:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -108,19 +108,19 @@ class TestTryOpenAIModels:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
 
     def test_connection_error(self):
-        with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=Exception("Connection refused")):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
 
     def test_timeout_error(self):
-        with patch("urllib.request.urlopen", side_effect=TimeoutError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=TimeoutError()):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -138,7 +138,7 @@ class TestTryOllamaTags:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is not None
@@ -152,7 +152,7 @@ class TestTryOllamaTags:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -165,13 +165,13 @@ class TestTryOllamaTags:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
 
     def test_connection_error(self):
-        with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=Exception("Connection refused")):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -186,7 +186,7 @@ class TestDiscoverLLM:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm()  # No endpoint specified
 
         assert result.name == "test-model"
@@ -201,7 +201,7 @@ class TestDiscoverLLM:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("localhost:1234")
 
         assert result.name == "openai-model"
@@ -218,14 +218,14 @@ class TestDiscoverLLM:
                 }).encode())
             raise Exception(f"Unexpected URL: {url}")
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("localhost:11434")
 
         assert result.name == "ollama-model"
 
     def test_nothing_found(self):
         """If neither endpoint works, return unavailable result."""
-        with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=Exception("Connection refused")):
             result = discover_llm("localhost:9999")
 
         assert result.is_available is False
@@ -240,7 +240,7 @@ class TestDiscoverLLM:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("http://localhost:11434/v1/models")
 
         # Should normalize and still work
@@ -256,13 +256,13 @@ class TestGetDisplayName:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = get_display_name("localhost:11434")
 
         assert result == "qwen3 coder"
 
     def test_no_model_found(self):
-        with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=Exception("Connection refused")):
             result = get_display_name("localhost:9999")
 
         assert result == "No local model found"
@@ -275,7 +275,7 @@ class TestGetDisplayName:
         def mock_urlopen(req, **kwargs):
             return MockResponse(response_data)
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = get_display_name()  # Uses default endpoint
 
         assert result == "test model"

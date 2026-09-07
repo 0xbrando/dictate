@@ -57,11 +57,12 @@ PARAKEET_LANGUAGES = frozenset({
     "ru", "uk",
 })
 
-# Languages supported by Qwen3-ASR (52 languages including CJK)
+# Qwen3-ASR: 30 languages and 22 Chinese dialects, not a superset of Parakeet.
 # Source: https://huggingface.co/Qwen/Qwen3-ASR-0.6B
-QWEN3_ASR_LANGUAGES = PARAKEET_LANGUAGES | frozenset({
-    "ja", "zh", "ko", "ar", "hi", "th", "vi", "id", "ms", "tl",
-    "tr", "fa", "he", "bn", "ta", "te", "ur", "sw", "am",
+QWEN3_ASR_LANGUAGES = frozenset({
+    "auto", "zh", "en", "yue", "ar", "de", "fr", "es", "pt", "id", "it",
+    "ko", "ru", "th", "vi", "ja", "tr", "hi", "ms", "nl", "sv", "da",
+    "fi", "pl", "cs", "fil", "tl", "fa", "el", "hu", "mk", "ro",
 })
 
 INPUT_LANGUAGES = [

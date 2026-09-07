@@ -138,6 +138,8 @@ class TestPipelineLoadModels:
             mock_cleaner._config = None
 
         pipeline = TranscriptionPipeline.__new__(TranscriptionPipeline)
+        from dictate.config import LLMConfig
+        pipeline._llm_config = LLMConfig()
         pipeline._whisper = mock_whisper
         pipeline._cleaner = mock_cleaner
         pipeline._fast_cleaner = MagicMock() if has_fast_cleaner else None
