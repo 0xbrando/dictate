@@ -113,7 +113,7 @@ class TestTryOpenAIModelsExtended:
             "data": [{"id": "gpt-4", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is not None
@@ -130,7 +130,7 @@ class TestTryOpenAIModelsExtended:
             ]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result.name == "first-model"
@@ -142,7 +142,7 @@ class TestTryOpenAIModelsExtended:
             {"id": "qwen3-coder", "object": "model"},
         ]).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is not None
@@ -152,7 +152,7 @@ class TestTryOpenAIModelsExtended:
         """Test empty data array returns None."""
         response_data = json.dumps({"data": []}).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -161,7 +161,7 @@ class TestTryOpenAIModelsExtended:
         """Test empty plain list returns None."""
         response_data = json.dumps([]).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -172,7 +172,7 @@ class TestTryOpenAIModelsExtended:
             "data": [{"object": "model", "created": 12345}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -183,7 +183,7 @@ class TestTryOpenAIModelsExtended:
             "data": [{"id": "", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -192,28 +192,28 @@ class TestTryOpenAIModelsExtended:
         """Test malformed JSON returns None."""
         response_data = b"not valid json"
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
 
     def test_connection_refused_error(self):
         """Test connection refused returns None."""
-        with patch("urllib.request.urlopen", side_effect=ConnectionRefusedError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=ConnectionRefusedError()):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
 
     def test_timeout_error(self):
         """Test timeout error returns None."""
-        with patch("urllib.request.urlopen", side_effect=TimeoutError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=TimeoutError()):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
 
     def test_generic_exception(self):
         """Test generic exception returns None."""
-        with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=Exception("Network error")):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -221,7 +221,7 @@ class TestTryOpenAIModelsExtended:
     def test_url_error(self):
         """Test URLError returns None."""
         import urllib.error
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("No route")):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=urllib.error.URLError("No route")):
             result = _try_openai_models("localhost:11434")
 
         assert result is None
@@ -229,7 +229,7 @@ class TestTryOpenAIModelsExtended:
     def test_http_error_404(self):
         """Test HTTPError 404 returns None."""
         import urllib.error
-        with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=urllib.error.HTTPError(
             "http://localhost:11434/v1/models", 404, "Not Found", {}, None
         )):
             result = _try_openai_models("localhost:11434")
@@ -246,7 +246,7 @@ class TestTryOllamaTagsExtended:
             "models": [{"name": "llama3.1:latest", "modified_at": "2024-01-01"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is not None
@@ -263,7 +263,7 @@ class TestTryOllamaTagsExtended:
             ]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result.name == "first-model"
@@ -272,7 +272,7 @@ class TestTryOllamaTagsExtended:
         """Test empty models array returns None."""
         response_data = json.dumps({"models": []}).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -281,7 +281,7 @@ class TestTryOllamaTagsExtended:
         """Test missing models key returns None."""
         response_data = json.dumps({"other": "data"}).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -292,7 +292,7 @@ class TestTryOllamaTagsExtended:
             "models": [{"modified_at": "2024-01-01"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -303,7 +303,7 @@ class TestTryOllamaTagsExtended:
             "models": [{"name": "", "modified_at": "2024-01-01"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -312,21 +312,21 @@ class TestTryOllamaTagsExtended:
         """Test malformed JSON returns None."""
         response_data = b"not valid json"
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
 
     def test_connection_error(self):
         """Test connection error returns None."""
-        with patch("urllib.request.urlopen", side_effect=ConnectionRefusedError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=ConnectionRefusedError()):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
 
     def test_timeout_error(self):
         """Test timeout error returns None."""
-        with patch("urllib.request.urlopen", side_effect=TimeoutError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=TimeoutError()):
             result = _try_ollama_tags("localhost:11434")
 
         assert result is None
@@ -341,7 +341,7 @@ class TestDiscoverLLMExtended:
             "data": [{"id": "test-model", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = discover_llm()
 
         assert result.endpoint == DEFAULT_ENDPOINT
@@ -362,7 +362,7 @@ class TestDiscoverLLMExtended:
                 return MockResponse(openai_response)
             raise Exception("Should not reach Ollama")
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("localhost:11434")
 
         assert result.name == "openai-model"
@@ -382,7 +382,7 @@ class TestDiscoverLLMExtended:
                 return MockResponse(ollama_response)
             raise Exception(f"Unexpected URL: {url}")
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("localhost:11434")
 
         assert result.name == "ollama-model"
@@ -390,7 +390,7 @@ class TestDiscoverLLMExtended:
 
     def test_both_endpoints_fail(self):
         """Test both endpoints fail returns unavailable."""
-        with patch("urllib.request.urlopen", side_effect=ConnectionRefusedError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=ConnectionRefusedError()):
             result = discover_llm("localhost:9999")
 
         assert result.is_available is False
@@ -403,7 +403,7 @@ class TestDiscoverLLMExtended:
             "data": [{"id": "test-model", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = discover_llm("http://localhost:11434/v1/models")
 
         # Normalized endpoint should be in result
@@ -421,7 +421,7 @@ class TestDiscoverLLMExtended:
                 }).encode())
             raise Exception(f"Unexpected URL: {url}")
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("localhost:11434")
 
         assert result.name == "ollama-model"
@@ -440,7 +440,7 @@ class TestDiscoverLLMExtended:
                 }).encode())
             raise Exception(f"Unexpected URL: {url}")
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = discover_llm("localhost:11434")
 
         assert result.name == "ollama-model"
@@ -455,7 +455,7 @@ class TestGetDisplayNameExtended:
             "data": [{"id": "qwen3-coder:30b", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = get_display_name("localhost:11434")
 
         assert result == "qwen3 coder"
@@ -466,14 +466,14 @@ class TestGetDisplayNameExtended:
             "data": [{"id": "custom-model", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = get_display_name("192.168.1.100:8000")
 
         assert result == "custom model"
 
     def test_unavailable_model_default_message(self):
         """Test message when no model is available."""
-        with patch("urllib.request.urlopen", side_effect=ConnectionRefusedError()):
+        with patch("dictate.llm_discovery.api_urlopen", side_effect=ConnectionRefusedError()):
             result = get_display_name("localhost:9999")
 
         assert result == "No local model found"
@@ -484,7 +484,7 @@ class TestGetDisplayNameExtended:
             "data": [{"id": "default-model", "object": "model"}]
         }).encode()
 
-        with patch("urllib.request.urlopen", return_value=MockResponse(response_data)):
+        with patch("dictate.llm_discovery.api_urlopen", return_value=MockResponse(response_data)):
             result = get_display_name()
 
         assert result == "default model"
@@ -501,7 +501,7 @@ class TestGetDisplayNameExtended:
                 }).encode())
             raise Exception(f"Unexpected URL: {url}")
 
-        with patch("urllib.request.urlopen", mock_urlopen):
+        with patch("dictate.llm_discovery.api_urlopen", mock_urlopen):
             result = get_display_name("localhost:11434")
 
         assert result == "llama3.1"

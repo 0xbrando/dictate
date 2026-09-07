@@ -870,7 +870,9 @@ def _first_time_download() -> None:
 
         # LLM model (skip for API backend)
         from dictate.config import LLMBackend
-        if quality.backend != LLMBackend.API and not is_model_cached(quality.llm_model.hf_repo):
+        if (prefs.llm_cleanup and prefs.writing_style != "raw"
+                and quality.backend != LLMBackend.API
+                and not is_model_cached(quality.llm_model.hf_repo)):
             needed.append((
                 "Text cleanup",
                 "Fixes grammar and punctuation — no cloud, no API keys",
@@ -943,6 +945,7 @@ def _daemonize() -> None:
     subprocess with --foreground so the child runs the app directly.
     """
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(LOG_FILE.parent, 0o700)
     log_fd = open(LOG_FILE, "a")
     try:
         subprocess.Popen(
@@ -964,6 +967,7 @@ def setup_logging() -> None:
     from logging.handlers import RotatingFileHandler
 
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(LOG_FILE.parent, 0o700)
     handler = RotatingFileHandler(
         LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3,  # 5 MB, keep 3 backups
     )
@@ -971,6 +975,7 @@ def setup_logging() -> None:
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     ))
+    os.chmod(LOG_FILE, 0o600)
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     root.addHandler(handler)
@@ -1050,7 +1055,7 @@ def main() -> int:
     
     # Show banner by writing directly to /dev/tty so it always appears in the
     # terminal even when stdout/stderr are redirected (e.g. via nohup).
-    foreground = "--foreground" in sys.argv or "-f" in sys.argv
+    foreground = bool(getattr(sys, "frozen", False)) or "--foreground" in sys.argv or "-f" in sys.argv
     try:
         _tty = open("/dev/tty", "w")
     except OSError:

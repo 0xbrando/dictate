@@ -21,14 +21,14 @@
 
 ## Why Dictate?
 
-- **65ms voice-to-text** on Apple's Neural Engine — faster than a keystroke
-- **Zero GPU RAM** for STT — the Neural Engine has its own dedicated memory
-- **100% local** — audio and text never leave your Mac
+- **Local speech recognition** accelerated by Apple Silicon
+- **ANE acceleration** for STT — reduces GPU contention; model memory still comes from unified memory
+- **Local inference by default** — optional remote text cleanup requires explicit opt-in
 - **Free and open source** — no subscriptions, no API keys, no accounts
 - **LLM text cleanup** — local model fixes grammar and punctuation automatically
-- **52+ languages** — real-time translation between any supported pair
+- **Multiple languages** — engine coverage varies; optional LLM translation
 
-Your M-series Mac has a 16-core Neural Engine doing nothing. Dictate puts it to work.
+Dictate can use your Mac’s Neural Engine for speech recognition.
 
 ## Install
 
@@ -39,7 +39,7 @@ dictate
 
 That's it. Dictate launches in the background and appears in your menu bar. Close the terminal — it keeps running.
 
-For Qwen3-ASR support (52-language STT engine):
+For Qwen3-ASR support (30 languages plus 22 Chinese dialects):
 
 ```bash
 pip install dictate-mlx[qwen3-asr]
@@ -79,7 +79,7 @@ dictate
 
 - macOS with Apple Silicon (any M-series chip)
 - Python 3.11+
-- ~3GB RAM with ANE (STT runs on Neural Engine, only LLM needs GPU memory)
+- Several GB of unified memory and disk space for the selected models
 
 ## Features
 
@@ -99,7 +99,7 @@ The PTT key is configurable: Left Control, Right Control, Right Command, or eith
 
 **The thing that sets Dictate apart.** Most dictation tools give you raw transcription. Dictate pipes through a local LLM that fixes grammar, adds punctuation, and formats properly.
 
-Short phrases (≤15 words) skip cleanup for instant speed. Longer dictation gets the full treatment.
+Clean, already formatted phrases of up to 8 words can skip cleanup. Translation and other writing styles still use the LLM.
 
 ### Local STT Engine Stack
 
@@ -107,14 +107,14 @@ Dictate is designed around local speech recognition. Switch anytime from the men
 
 | Engine | Speed | Languages | Notes |
 |--------|-------|-----------|-------|
-| **ANE / FluidAudio** | **~65ms** | 25 | Default — Parakeet TDT v3 through Core ML on Apple Neural Engine |
-| **Qwen3-ASR 0.6B** | ~50ms | 52 | Best broad multilingual local path — includes CJK, Arabic, Hindi |
-| **Parakeet TDT v3 0.6B** | ~50ms | 25 | Fast European-language GPU/MLX fallback |
-| **Whisper Large V3 Turbo** | ~300ms | 99+ | Compatibility fallback for maximum language coverage |
+| **ANE / FluidAudio** | varies | 25 | Default — Parakeet TDT v3 through Core ML on Apple Neural Engine |
+| **Qwen3-ASR 0.6B** | varies | 30 + 22 dialects | Best broad multilingual local path — includes CJK, Arabic, Hindi |
+| **Parakeet TDT v3 0.6B** | varies | 25 | Fast European-language GPU/MLX fallback |
+| **Whisper Large V3 Turbo** | varies | 99+ | Compatibility fallback for maximum language coverage |
 
-ANE is the default. It runs speech recognition through [FluidAudio](https://github.com/FluidInference/FluidAudio) on Apple's Neural Engine — a dedicated chip that sits idle during most tasks. This frees the GPU entirely for LLM text cleanup, so STT and LLM run concurrently with zero contention. The result: **65-106ms transcription** on real speech.
+ANE is the default. It runs Parakeet through [FluidAudio](https://github.com/FluidInference/FluidAudio) and Core ML. This reduces GPU contention, but Apple Silicon shares unified memory across processors. Dictate currently transcribes and then cleans text sequentially. Latency depends on clip length, model, hardware, and whether models are warm.
 
-**Qwen3-ASR** is the recommended local multilingual engine — 52 languages including Japanese, Chinese, and Korean at Parakeet-level speed. Requires `pip install dictate-mlx[qwen3-asr]`.
+**Qwen3-ASR** is the recommended local multilingual engine — 30 languages and 22 Chinese dialects, including Japanese, Chinese, and Korean. Requires `pip install dictate-mlx[qwen3-asr]`.
 
 Dictate auto-switches engines based on language: ANE/Parakeet for European languages, Qwen3-ASR for CJK and others, Whisper as the universal fallback.
 
@@ -143,12 +143,12 @@ Dictate does not install every LLM up front. First run downloads the recommended
 
 | Preset | Speed | Size | Best for |
 |--------|-------|------|----------|
-| **Fast — Qwen2.5 1.5B** | ~250ms | 950MB | Lowest RAM, quick cleanup |
-| **Balanced — Qwen3.5 2B** | ~280ms | 1.3GB | Default for most Macs; best speed/quality tradeoff |
-| **Quality — Qwen2.5 3B** | ~400ms | 1.8GB | Slower, best polish |
+| **Fast — Qwen2.5 1.5B** | varies | 950MB | Lowest RAM, quick cleanup |
+| **Balanced — Qwen3.5 2B** | varies | 1.3GB | Default for most Macs; newer small-model option |
+| **Quality — Qwen2.5 3B** | varies | 1.8GB | Larger alternative; compare on your dictation |
 | **Local API Server** | varies | 0 | Use your own localhost LLM server (LM Studio, Ollama, etc.) |
 
-Short phrases (15 words or less) skip LLM cleanup entirely for instant output. The app picks the best default model for your chip.
+Clean phrases of up to 8 words can skip cleanup. The app picks a default model for your chip; compare presets on your own dictation.
 
 Recommended defaults:
 
@@ -161,15 +161,9 @@ Recommended defaults:
 
 ### End-to-End Pipeline
 
-Full latency from voice → text on screen:
+Dictate records a clip, transcribes it, optionally cleans the transcript, then pastes it. Model download and first-load time are separate from warm inference time. Older 65ms figures are specific STT measurements, not an end-to-end latency guarantee.
 
-| Mode | GPU RAM | Latency |
-|------|---------|---------|
-| LLM off (raw transcription) | **0** | **~65ms** |
-| LLM on (Qwen3.5 2B) | ~1.3GB | ~345ms |
-| LLM on (Qwen2.5 3B) | ~1.8GB | ~465ms |
-
-With ANE, speech recognition runs on a dedicated chip with its own memory — zero GPU usage. Turn off LLM cleanup and the entire app uses no GPU RAM at all.
+See [the September 2026 audit](docs/audit-september2026.md) for measured results on an M2 Max and current model recommendations.
 
 ## Menu Bar
 
@@ -335,7 +329,7 @@ tail -f ~/Library/Logs/Dictate/dictate.log
 
 ## Security
 
-- All processing is local. Audio and text never leave your machine.
+- Audio inference is local. Optional remote text cleanup requires explicit opt-in. Output is copied to the system clipboard before pasting.
 - Temporary audio files stored in a private directory with owner-only permissions — not world-readable /tmp.
 - The ANE engine's `dictate-stt` binary is open source Swift code you build yourself from `swift-stt/`. CoreML models download from [Hugging Face](https://huggingface.co/FluidInference) on first run, then everything is cached locally.
 - Models restricted to the `mlx-community/` HuggingFace namespace only.
