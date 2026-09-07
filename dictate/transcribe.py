@@ -383,6 +383,7 @@ class ANETranscriber:
                 # Inherit stderr so model/download logs cannot fill an unread pipe.
                 stderr=None,
                 text=True,
+                encoding="utf-8",  # Swift's JSON protocol is UTF-8, including under Finder's locale.
                 bufsize=1,
             )
 
@@ -443,7 +444,7 @@ class ANETranscriber:
                 self._stop_server()
                 self._model_loaded = False
                 return ""
-            except (BrokenPipeError, OSError, RuntimeError) as e:
+            except (BrokenPipeError, OSError, RuntimeError, UnicodeError) as e:
                 logger.error("ANE helper failed: %s", e)
                 self._stop_server()
                 self._model_loaded = False

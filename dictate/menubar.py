@@ -30,7 +30,7 @@ from collections import deque
 from pathlib import Path
 
 from dictate.icons import cleanup_temp_files, generate_reactive_icon, get_icon_path
-from dictate.output import TextAggregator, create_output_handler
+from dictate.output import PastePermissionError, TextAggregator, create_output_handler
 from dictate.presets import (
     INPUT_LANGUAGES,
     OUTPUT_LANGUAGES,
@@ -1220,9 +1220,11 @@ class DictateMenuBarApp(rumps.App):
         try:
             text = pipeline.process(audio)
             if text:
-                self._emit_output(text)
+                output_succeeded = self._emit_output(text)
                 # Record usage stats
                 self._record_stats(text, audio)
+                if not output_succeeded:
+                    return  # Keep the actionable output error visible.
                 if pipeline.last_cleanup_failed:
                     self._post_ui("status", "Ready (cleanup skipped)")
                 else:
@@ -1248,16 +1250,22 @@ class DictateMenuBarApp(rumps.App):
         except Exception:
             logger.debug("Failed to record stats", exc_info=True)
 
-    def _emit_output(self, text: str) -> None:
+    def _emit_output(self, text: str) -> bool:
         self._aggregator.append(text)
         # Add to recent first so text isn't lost if output fails
         self._post_ui("recent", text)
         try:
             self._output.output(text)
             self._post_ui("notify", text)
+            return True
+        except PastePermissionError:
+            logger.warning("Paste blocked by Accessibility permission; text saved to Recent")
+            self._post_ui("status", "Paste blocked — enable Accessibility; text in Recent")
+            return False
         except Exception:
             logger.exception("Output error — text saved to Recent")
             self._post_ui("status", "Output error — check Recent")
+            return False
 
     # ── Shutdown ───────────────────────────────────────────────────
 

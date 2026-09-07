@@ -476,6 +476,24 @@ class TestRecording:
 
 
 class TestProcessChunk:
+    @pytest.mark.parametrize("permission_denied", [False, True])
+    def test_output_error_is_not_overwritten_by_ready(self, mock_app, permission_denied):
+        from dictate.output import PastePermissionError
+
+        mock_app._pipeline = MagicMock()
+        mock_app._pipeline.process.return_value = "Hello world"
+        mock_app._output = MagicMock()
+        mock_app._output.output.side_effect = (
+            PastePermissionError("Accessibility") if permission_denied else RuntimeError("paste failed")
+        )
+        with patch.object(mock_app, "_record_stats"):
+            mock_app._process_chunk(np.zeros(16000, dtype=np.int16))
+        messages = list(mock_app._ui_queue.queue)
+        assert ("recent", "Hello world") in messages
+        statuses = [value for kind, value in messages if kind == "status"]
+        assert len(statuses) == 1
+        assert "Accessibility" in statuses[0] if permission_denied else "Output error" in statuses[0]
+
     def test_no_pipeline(self, mock_app):
         mock_app._pipeline = None
         mock_app._process_chunk(np.zeros(100, dtype=np.int16))

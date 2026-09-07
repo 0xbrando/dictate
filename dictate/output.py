@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
@@ -14,6 +15,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TYPING_DELAY_SECONDS = 0.05
+
+
+class PastePermissionError(RuntimeError):
+    """macOS would silently discard simulated keyboard events."""
+
+
+def _accessibility_trusted() -> bool:
+    if sys.platform != "darwin":
+        return True
+    from HIServices import AXIsProcessTrusted
+
+    # Check only: never open another permission prompt during dictation.
+    return bool(AXIsProcessTrusted())
+
+
+def _require_accessibility() -> None:
+    if not _accessibility_trusted():
+        raise PastePermissionError(
+            "Enable Dictate in System Settings → Privacy & Security → Accessibility. "
+            "Your text is saved in Recent."
+        )
 
 
 class OutputHandler(ABC):
@@ -40,14 +62,16 @@ class TyperOutput(OutputHandler):
             if self._has_pasted:
                 text = " " + text
             pyperclip.copy(text)
-            self._has_pasted = True
+            _require_accessibility()
             time.sleep(TYPING_DELAY_SECONDS)
             self._controller.press(Key.cmd)
             self._controller.press('v')
             self._controller.release('v')
             self._controller.release(Key.cmd)
+            self._has_pasted = True
         except pyperclip.PyperclipException as e:
             logger.error("Clipboard not available: %s", e)
+            _require_accessibility()
             # Try to fall back to direct typing
             try:
                 self._controller.type(text)
