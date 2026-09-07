@@ -970,6 +970,7 @@ def setup_logging() -> None:
     os.chmod(LOG_FILE.parent, 0o700)
     handler = RotatingFileHandler(
         LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3,  # 5 MB, keep 3 backups
+        encoding="utf-8",
     )
     handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s",

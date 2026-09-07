@@ -319,6 +319,13 @@ Completes commands, config keys, and all valid values.
 
 ## Debugging
 
+If recording finishes but no text appears, enable **Dictate** in **System Settings →
+Privacy & Security → Accessibility**, then quit and reopen Dictate. For a terminal
+launch, grant the terminal app instead. This permission lets Dictate send the paste
+shortcut. Click into an editable text field before holding the push-to-talk key.
+Failed output stays in **Recent**; if copying succeeded, you can also paste with
+**⌘V**. Public model downloads do not require a Hugging Face account or Keychain access.
+
 ```bash
 # Run in foreground with logs
 dictate --foreground
