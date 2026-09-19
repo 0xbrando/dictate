@@ -343,6 +343,7 @@ class AudioCapture:
 
     def _process_audio_block(self, audio: "NDArray[np.float32]") -> None:
         now = time.time()
+        should_finalize = False
 
         with self._lock:
             if not self._recording:
@@ -368,8 +369,15 @@ class AudioCapture:
                     self._vad.current_chunk.append(audio)
                     silence_duration = now - self._vad.last_speech_time
                     if silence_duration >= self._vad_config.silence_timeout_s:
-                        self._finalize_chunk(force=False)
                         self._vad.in_speech = False
+                        should_finalize = True
+
+        # _finalize_chunk takes the same lock to snapshot the chunk. Calling it
+        # from inside the critical section above deadlocks the PortAudio callback
+        # thread as soon as speech is followed by enough silence. That also makes
+        # stop(), Quit, and subsequent recordings block forever.
+        if should_finalize:
+            self._finalize_chunk(force=False)
 
     def _finalize_chunk(self, force: bool) -> None:
         with self._lock:
