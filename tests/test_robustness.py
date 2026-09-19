@@ -90,6 +90,35 @@ class TestPipelineLock:
 class TestFinalizeChunkThreadSafety:
     """Verify _finalize_chunk uses the lock for chunk snapshot."""
 
+    def test_silence_after_speech_does_not_deadlock(self):
+        """VAD finalization must happen after releasing the capture lock."""
+        from dictate.audio import AudioCapture
+
+        chunks_received = []
+        capture = AudioCapture(
+            audio_config=MagicMock(sample_rate=16000, channels=1, block_ms=30, block_size=480),
+            vad_config=MagicMock(
+                pre_roll_s=0.25,
+                silence_timeout_s=0.0,
+                rms_threshold=1.0,
+            ),
+            on_chunk_ready=lambda audio: chunks_received.append(audio),
+        )
+        capture._recording = True
+        capture._vad.in_speech = True
+        capture._vad.last_speech_time = 0.0
+        capture._vad.current_chunk = [np.zeros(16000, dtype=np.float32)]
+
+        worker = threading.Thread(
+            target=capture._process_audio_block,
+            args=(np.zeros(480, dtype=np.float32),),
+        )
+        worker.start()
+        worker.join(timeout=1.0)
+
+        assert not worker.is_alive(), "audio callback deadlocked while finalizing speech"
+        assert len(chunks_received) == 1
+
     def test_finalize_chunk_clears_under_lock(self):
         """After finalize, current_chunk should be empty."""
         from dictate.audio import AudioCapture, VADState
