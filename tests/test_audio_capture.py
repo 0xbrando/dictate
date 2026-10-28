@@ -351,6 +351,30 @@ class TestAudioCallback:
 
         assert capture._vad.in_speech is False
 
+    def test_silence_flushes_real_chunk_and_recording_can_stop(
+        self, capture, audio_config, vad_config, on_chunk
+    ):
+        capture._recording = True
+        capture._process_audio_block(
+            np.full(audio_config.sample_rate, 0.5, dtype=np.float32)
+        )
+        capture._vad.last_speech_time = (
+            time.time() - vad_config.silence_timeout_s - 0.1
+        )
+
+        def pause_then_stop():
+            capture._process_audio_block(np.zeros(100, dtype=np.float32))
+            capture.stop()
+
+        worker = threading.Thread(target=pause_then_stop, daemon=True)
+        worker.start()
+        worker.join(timeout=1)
+
+        assert not worker.is_alive(), "Silence finalization deadlocked"
+        on_chunk.assert_called_once()
+        assert on_chunk.call_args[0][0].dtype == np.int16
+        assert not capture.is_recording
+
     def test_process_block_pre_roll_accumulates(self, capture):
         """Pre-roll buffer should accumulate samples."""
         capture._recording = True

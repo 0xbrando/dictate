@@ -223,7 +223,8 @@ class AudioCapture:
         self._recording = False
         self._recording_started_at = 0.0
         self._current_rms: float = 0.0
-        self._lock = threading.Lock()
+        # Silence finalization re-enters the capture lock from the audio callback.
+        self._lock = threading.RLock()
 
         pre_roll_samples = int(vad_config.pre_roll_s * audio_config.sample_rate)
         self._vad = VADState(pre_roll=deque(maxlen=pre_roll_samples))
